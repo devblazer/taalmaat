@@ -59,6 +59,13 @@ const WAITS = {
   marking: { title: 'Reading your answers…', seconds: 8 },
   checking: { title: 'Checking…', seconds: 12 },
   sentences: { title: 'Writing you some new sentences…', seconds: 12 },
+  scan: {
+    title: 'Reading your page…',
+    seconds: 14,
+    lines: ['Looking at the photo…', 'Working out the words…', 'Tidying up the scan…', 'Almost there.'],
+  },
+  paste: { title: 'Taking that in…', seconds: 3 },
+  adding: { title: 'Getting your page ready…', seconds: 3 },
 };
 
 let coverTick = null;
@@ -355,6 +362,7 @@ function render() {
 
   ({
     choosing: viewChoosing,
+    importing: viewImporting,
     reading: viewReading,
     exam: viewExam,
     bridge: viewBridge,
@@ -381,6 +389,145 @@ function viewChoosing() {
   const more = el(`<div class="row"><button class="ghost">Show me three different ones</button></div>`);
   more.querySelector('button').addEventListener('click', () => go('/api/offers', {}, WAITS.offers));
   main.append(more);
+}
+
+/** A page brought in but not yet accepted — held here until someone checks it. */
+let draft = null;
+
+/**
+ * Bringing in a page of their own.
+ *
+ * Two routes in. A photo goes through OCR and a repair pass; pasted text goes
+ * through neither, because a paste is already the real text and anything that
+ * "tidies" it risks changing words that were right.
+ *
+ * Both land on the same review step. Nothing is committed until a person has read
+ * it, because a mis-scanned word becomes a word that gets learned wrongly, and the
+ * one thing this tool must not do is teach something that was never on the page.
+ */
+function viewImporting() {
+  const s = state.story;
+  crumb.textContent = s ? s.title : 'A page of your own';
+  main.classList.add('wide');
+
+  if (draft) return viewDraft();
+
+  main.append(
+    el(`<p class="lead">${s ? `Add the next page of “${escape(s.title)}”.` : 'Bring in a page to read.'}</p>`),
+  );
+  if (s) {
+    main.append(el(`<p class="hint">${s.pageCount} page${s.pageCount === 1 ? '' : 's'} so far.</p>`));
+  }
+
+  const split = el(`<div class="split"></div>`);
+
+  // --- photo ---
+  const photo = el(`
+    <div class="sentence-card">
+      <h3 class="import-head">Take a photo</h3>
+      <p class="hint">Lay the book flat, good light, camera straight above the page. One page at a time.</p>
+      <label class="filebtn">
+        <input type="file" accept="image/*" capture="environment" hidden />
+        <span class="primary-ish">Choose or take a photo</span>
+      </label>
+    </div>
+  `);
+  photo.querySelector('input').addEventListener('change', (e) => {
+    const file = e.target.files?.[0];
+    if (file) readImage(file);
+  });
+
+  // --- paste ---
+  const paste = el(`
+    <div class="sentence-card">
+      <h3 class="import-head">Or paste the text</h3>
+      <p class="hint">From an e-book, a PDF, a website — anything you can copy.</p>
+      <textarea id="paste-box" rows="7" placeholder="Paste the Afrikaans text here…"></textarea>
+      <div class="row"><button class="primary">Use this text</button></div>
+    </div>
+  `);
+  paste.querySelector('button').addEventListener('click', async () => {
+    const text = paste.querySelector('#paste-box').value;
+    if (!text.trim()) return;
+    try {
+      draft = await api('/api/paste', { text }, WAITS.paste);
+    } catch {
+      /* rendered */
+    }
+    render();
+  });
+
+  split.append(photo, paste);
+  main.append(split);
+
+  if (s) {
+    const row = el(`<div class="row"><button class="ghost">Finished with this book</button></div>`);
+    row.querySelector('button').addEventListener('click', () => go('/api/close-book', {}, WAITS.adding));
+    main.append(row);
+  }
+}
+
+function readImage(file) {
+  const reader = new FileReader();
+  reader.onload = async () => {
+    try {
+      draft = await api('/api/scan', { image: reader.result }, WAITS.scan);
+    } catch {
+      /* rendered */
+    }
+    render();
+  };
+  reader.readAsDataURL(file);
+}
+
+/** Check it against the page before it becomes something to study. */
+function viewDraft() {
+  const first = !state.story;
+
+  main.append(el(`<p class="lead">Does this match the page?</p>`));
+  main.append(
+    el(`<p class="hint">${
+      draft.from === 'photo'
+        ? 'Read it over and fix anything the camera got wrong — you can edit it here.'
+        : 'Read it over and fix anything that came across oddly — you can edit it here.'
+    }</p>`),
+  );
+
+  if (draft.note) main.append(el(`<div class="result wrong"><div class="head">Worth checking</div><div>${escape(draft.note)}</div></div>`));
+  if (draft.confidence !== null && draft.confidence < 85) {
+    main.append(
+      el(`<div class="result wrong"><div class="head">The scan was not very clear (${draft.confidence}%)</div><div>Check it carefully, or take the photo again with better light.</div></div>`),
+    );
+  }
+
+  const card = el(`<div class="sentence-card"><textarea id="draft-box" rows="16"></textarea></div>`);
+  card.querySelector('textarea').value = draft.text;
+  main.append(card);
+
+  if (first) {
+    main.append(
+      el(`<div class="sentence-card"><label class="ask"><span>What is this book called?</span><input type="text" id="book-title" placeholder="My book" autocomplete="off" /></label></div>`),
+    );
+  }
+
+  const row = el(`
+    <div class="row">
+      <button class="primary">Use this page</button>
+      <button class="ghost">Start over</button>
+    </div>
+  `);
+  const [use, again] = row.querySelectorAll('button');
+  use.addEventListener('click', async () => {
+    const text = document.getElementById('draft-box').value;
+    const title = document.getElementById('book-title')?.value;
+    draft = null;
+    await go('/api/page', { text, title }, WAITS.adding);
+  });
+  again.addEventListener('click', () => {
+    draft = null;
+    render();
+  });
+  main.append(row);
 }
 
 function viewReading() {

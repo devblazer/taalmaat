@@ -6,13 +6,41 @@ import { wordPrompt, sentencePrompt } from '../claude/prompts/gloss.js';
 import { examPrompt } from '../claude/prompts/exam.js';
 import { markPrompt } from '../claude/prompts/mark.js';
 import { bridgePrompt, bridgeMarkPrompt, miniPrompt } from '../claude/prompts/bridge.js';
+import { tidyPrompt } from '../claude/prompts/tidy.js';
+import * as ocr from '../ocr.js';
 import { getProfile } from '../profiles.js';
 import { ACTIVITIES, getActivity } from '../activities.js';
 import { progressFor, peek } from '../store/progress.js';
 import { storiesFor, newId } from '../store/stories.js';
 import { bank, timesWrong } from '../store/words.js';
 
-const MAX_BRIDGE_WORDS = 8;
+/**
+ * How much testing one page earns, regardless of how big the page is.
+ *
+ * A Grade 10 book page carries several times the content of a written story page,
+ * and scaling the questions with it would turn one page into an evening. The number
+ * of questions stays flat and the hardest words win the slots - the rest are not
+ * lost, they are in the word bank and come back on their own schedule, in the
+ * bridge, and in whatever gets read next.
+ */
+const MAX_VOCAB_QUESTIONS = 6;
+const MAX_BRIDGE_WORDS = 6;
+
+/**
+ * Undo the hard line-wrapping a PDF or e-reader leaves in pasted text.
+ *
+ * Deterministic and in code on purpose: a paste is already the real text, and
+ * sending it through a model to be "tidied" risks changing words that were right.
+ */
+function unwrap(raw) {
+  return raw
+    .replace(/\r\n?/g, '\n')
+    .replace(/-\n(\p{Ll})/gu, '$1')          // word split across a line break
+    .replace(/([^\n.!?:;"”'’)\]])\n(?!\n)(?=\p{Ll}|\p{Lu})/gu, '$1 ')  // wrapped mid-sentence
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
 
 /** Stories whose later pages are still being written, keyed by story id. */
 const beingWritten = new Map();
@@ -96,6 +124,10 @@ export function sessionFor(profileId, activityId) {
   if (!activity) throw tellHer('Pick what you want to do first.', `unknown activity: ${activityId}`);
   if (!activity.ready) throw tellHer(activity.notReady ?? 'That is not ready yet.', `activity not ready: ${activityId}`);
 
+  // A book grows a page at a time from whatever gets scanned or pasted in; a story
+  // arrives whole. That difference is the only thing the two activities disagree on.
+  const importsPages = activity.id === 'book';
+
   const progress = progressFor(profileId, activityId);
   const stories = storiesFor(profileId);
   const words = bank(profileId);
@@ -104,10 +136,13 @@ export function sessionFor(profileId, activityId) {
   function state() {
     const p = progress.load();
     const story = p.storyId ? stories.read(p.storyId) : null;
+    // A book with nothing in it yet has a page to bring in, not a story to choose.
+    const phase = importsPages && p.phase === 'choosing' ? 'importing' : p.phase;
+
     return {
       profile: { id: profile.id, name: profile.name, age: profile.age, grade: profile.grade },
-      activity: { id: activity.id, name: activity.name },
-      phase: p.phase,
+      activity: { id: activity.id, name: activity.name, imports: importsPages },
+      phase,
       offers: p.offers,
       story: story && {
         id: story.id,
@@ -221,11 +256,104 @@ export function sessionFor(profileId, activityId) {
     return ask(sentencePrompt({ profile, sentence }), { fast: true, what: 'sentence' });
   }
 
+  // ------------------------------------------------------------ bringing in a page
+
+  /**
+   * A photographed page: read it, then repair the scan.
+   *
+   * Nothing is committed here. The result goes back for a person to check against
+   * the photo first, because an OCR slip becomes a word that gets learned wrongly.
+   */
+  async function scanPage(image) {
+    if (!image) throw tellHer('No photo came through — try taking it again.');
+
+    const { text, confidence } = await ocr.read(image);
+    if (!text || text.replace(/\W/g, '').length < 20) {
+      throw tellHer(
+        "I couldn't read anything on that photo. Try again with more light, the page flat, and the camera straight above it.",
+        `ocr produced ${text.length} chars at ${confidence}% confidence`,
+      );
+    }
+
+    const tidied = await ask(tidyPrompt({ profile, raw: text, confidence }), { what: 'tidy' });
+    if (!tidied.usable) {
+      throw tellHer(tidied.note || 'That photo came out too blurry to read. Try taking it again.');
+    }
+
+    return {
+      text: tidied.text ?? text,
+      note: tidied.note ?? null,
+      confidence: Math.round(confidence),
+      unreadable: tidied.unreadable ?? 0,
+      from: 'photo',
+    };
+  }
+
+  /**
+   * Text pasted in from somewhere digital.
+   *
+   * No model involved. A paste is already the real text, and running it through
+   * anything risks changing words that were correct. All that gets fixed is the
+   * hard line-wrapping a PDF or e-reader leaves behind, which is deterministic and
+   * belongs in code rather than in a prompt.
+   */
+  function pasteText(raw) {
+    const text = unwrap(String(raw ?? ''));
+    if (text.replace(/\W/g, '').length < 20) {
+      throw tellHer('That looks too short to read — paste a bit more.');
+    }
+    return { text, note: null, confidence: null, unreadable: 0, from: 'paste' };
+  }
+
+  /** Commit a reviewed page onto the book, creating the book if this is the first. */
+  function addPage({ text, title }) {
+    const body = String(text ?? '').trim();
+    if (!body) throw tellHer('There is nothing to add yet.');
+
+    const p = progress.load();
+    let story = p.storyId ? stories.read(p.storyId) : null;
+
+    if (!story) {
+      story = {
+        id: newId(),
+        title: String(title ?? '').trim() || 'My book',
+        pages: [],
+        source: 'book',
+        createdAt: new Date().toISOString(),
+      };
+    }
+
+    story.pages.push(body);
+    stories.write(story);
+
+    progress.update({
+      phase: 'reading',
+      storyId: story.id,
+      pageIndex: story.pages.length - 1,
+      exam: null,
+      bridge: null,
+    });
+    return state();
+  }
+
+  /** Put the book down and start a different one next time. */
+  function closeBook() {
+    const p = progress.load();
+    const story = p.storyId ? stories.read(p.storyId) : null;
+    const history = story
+      ? [...p.history, { storyId: story.id, title: story.title, finishedAt: new Date().toISOString() }]
+      : p.history;
+
+    progress.update({ phase: 'importing', storyId: null, pageIndex: 0, exam: null, bridge: null, history });
+    return state();
+  }
+
   async function startExam() {
     const p = progress.load();
     const story = stories.read(p.storyId);
     const page = story.pages[p.pageIndex];
-    const asked = words.askedOnPage(p.storyId, p.pageIndex);
+    // Hardest words win the slots; the rest keep their place in the word bank.
+    const asked = words.askedOnPage(p.storyId, p.pageIndex).slice(0, MAX_VOCAB_QUESTIONS);
 
     const built = await ask(examPrompt({ profile, page, asked }), { what: 'exam' });
     const questions = [
@@ -394,6 +522,13 @@ export function sessionFor(profileId, activityId) {
     const total = story.pageCount ?? story.pages.length;
     const next = p.pageIndex + 1;
 
+    // A book has no last page until someone says so - the next one is whatever
+    // gets scanned or pasted in next.
+    if (importsPages && next >= story.pages.length) {
+      progress.update({ phase: 'importing', pageIndex: p.pageIndex, exam: null, bridge: null });
+      return state();
+    }
+
     // They have outrun the writer, or the server restarted mid-story. Either way
     // the page has to exist before they can be sent to it.
     if (next < total && next >= story.pages.length) story = await writeRest(story);
@@ -429,6 +564,10 @@ export function sessionFor(profileId, activityId) {
     state,
     offerStories,
     chooseStory,
+    scanPage,
+    pasteText,
+    addPage,
+    closeBook,
     lookupWord,
     lookupSentence,
     startExam,

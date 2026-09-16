@@ -58,6 +58,46 @@ later, with no announcement.
 Words got right go quiet on a widening schedule (1, 3, 7, 21, 60 days). Words got wrong
 come straight back.
 
+## Two things to read
+
+Each learner picks an activity, and each keeps its own place — a half-read set text is
+never clobbered by starting a story on another evening.
+
+- **A story for me** — three invented stories to pick from, written at that learner's level.
+- **My own book** — a page they bring in themselves, either photographed or pasted.
+
+The word bank is deliberately **not** split this way. A word met in a school text and the
+same word met in a story are the same word, and having it resurface wherever it next
+appears is the whole mechanism.
+
+## Bringing in your own page
+
+Two routes, both landing on the same review step, because nothing is committed until a
+person has read it — a mis-scanned word becomes a word learned wrongly.
+
+**Photo.** Tesseract with the `afr` model, one worker kept warm. Measured: 3.2s to start,
+0.6s to recognise, ~5s including the repair pass. Printed Afrikaans came back at 95%
+confidence with `reën` and `wêreld` correctly accented — a stripped diacritic is a
+different word, so that matters.
+
+The repair pass (`src/claude/prompts/tidy.js`) fixes **scanning artifacts only**: line
+breaks mid-sentence, words hyphenated across lines, characters OCR confuses, missing
+accents. It is explicitly forbidden from rewording, shortening, improving or continuing
+the text, and marks anything unreadable `[?]` rather than guessing. The text belongs to
+the book; the job is to match the page, not improve it.
+
+**Paste.** No model involved at all — a paste is already the real text, and running it
+through anything risks changing words that were right. Hard line-wrapping from a PDF or
+e-reader is undone in code (`unwrap()`), which is deterministic.
+
+## How much testing one page earns
+
+Flat, regardless of page length: **3 comprehension questions and at most 6 vocabulary
+questions**, always the hardest words. A Grade 10 book page carries several times the
+content of a written story page, and scaling with it would turn one page into an evening.
+Words that miss the cut are not lost — they are in the word bank and come back on their
+own schedule.
+
 ## The loop
 
 ```
@@ -126,8 +166,6 @@ way to catch this thing teaching them something wrong.
   bank export exists so someone who can, occasionally does.
 - **No sign-in.** Picking a learner is a button, not a login. Deliberate: it is a family
   tool on one machine, and a password would cost more than it buys.
-- **No import path yet.** Both learners can be offered generated stories; bringing in a
-  page from their own book (photograph, OCR, correct, read) is the next piece.
 - **Stories are generated, not sourced.** Openly-licensed human-written Afrikaans does exist
   (African Storybook, Global Digital Library, Nal'ibali) but the volume sits at levels pitched
   well below even the younger learner's interests, let alone a Grade 11's.

@@ -4,12 +4,13 @@ import { fileURLToPath } from 'node:url';
 import { sessionFor, overviewFor } from './session/flow.js';
 import { listProfiles } from './profiles.js';
 import { warmUp } from './claude/ask.js';
+import { warmUp as warmOcr } from './ocr.js';
 import { explain, tellHer } from './claude/failure.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const app = express();
 
-app.use(express.json({ limit: '1mb' }));
+app.use(express.json({ limit: '25mb' }));  // a phone photo is megabytes
 app.use(express.static(path.join(root, 'web')));
 
 /**
@@ -67,6 +68,10 @@ app.get('/api/overview', route(async (req) => overviewFor(whoId(req))));
 app.get('/api/state', route(async (req) => who(req).state()));
 app.post('/api/offers', route(async (req) => who(req).offerStories()));
 app.post('/api/choose', route(async (req) => who(req).chooseStory(Number(req.body.index))));
+app.post('/api/scan', route(async (req) => who(req).scanPage(req.body.image)));
+app.post('/api/paste', route(async (req) => who(req).pasteText(req.body.text)));
+app.post('/api/page', route(async (req) => who(req).addPage(req.body)));
+app.post('/api/close-book', route(async (req) => who(req).closeBook()));
 app.post('/api/word', route(async (req) => who(req).lookupWord(req.body)));
 app.post('/api/sentence', route(async (req) => who(req).lookupSentence(req.body)));
 app.post('/api/exam', route(async (req) => who(req).startExam()));
@@ -81,4 +86,7 @@ app.listen(port, () => {
   // Both Claude processes come up now, so the first tap is a one-second wait
   // rather than a six-second one.
   warmUp();
+  // The OCR worker too - 3.2s to start, and nobody should hold a phone over a book
+  // waiting for it.
+  warmOcr();
 });

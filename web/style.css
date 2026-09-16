@@ -325,6 +325,40 @@ button:disabled { opacity: 0.5; cursor: default; }
 
 .ask input:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
 
+/* ---------- bringing in your own page ---------- */
+
+.import-head { margin: 0 0 6px; font-size: 19px; }
+
+.filebtn { display: inline-block; margin-top: 14px; cursor: pointer; }
+
+.filebtn .primary-ish {
+  display: inline-block;
+  background: var(--accent);
+  color: #fff;
+  border-radius: 999px;
+  padding: 11px 22px;
+  font-size: 16px;
+}
+
+.filebtn:hover .primary-ish { background: #26593e; }
+
+textarea {
+  width: 100%;
+  font: inherit;
+  font-size: 16px;
+  line-height: 1.6;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+  color: inherit;
+  resize: vertical;
+}
+
+textarea:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
+
+#draft-box { font-size: 17px; line-height: 1.75; }
+
 /* ---------- waiting ----------
    A full cover, not a corner dot. While Claude is thinking she must not be able to
    click anything, and she must be able to see why nothing is happening. */

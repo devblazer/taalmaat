@@ -32,6 +32,11 @@ ${vocabBlock}
 
 Build the test. Two parts.
 
+**Exactly 3 comprehension questions, however long the page is.** A page from a real
+book carries several times the content of a written story page, and asking
+proportionally more about it would turn one page into an entire evening. Pick the 3
+that cover the page best and let the rest go.
+
 COMPREHENSION - 3 questions about what happened, ANSWERED IN ENGLISH. ${p.Subj} is not
 writing Afrikaans yet; this is checking understanding, nothing else. Ask things that
 can only be answered by having followed the page - why someone did something, what

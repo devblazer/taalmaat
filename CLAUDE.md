@@ -69,6 +69,19 @@ failure this project has, and nothing automated catches it.
 - **A failure she cannot retry is a dead end.** Every error card carries a Try again that
   repeats the last action, except the `setup` class, which is genuinely a grown-up's
   problem and says so.
+- **The tidy pass repairs a scan; it never writes one.** `src/claude/prompts/tidy.js`
+  fixes OCR artifacts and nothing else — no rewording, no shortening, no continuing, no
+  fixing the author's grammar. The text belongs to a book the family owns and the job is
+  to match the page. Unreadable means `[?]`, never a guess.
+- **Pasted text never goes near a model.** It is already the real text; `unwrap()` undoes
+  line-wrapping in code. Anything smarter risks changing words that were correct.
+- **Nothing imported is committed until a person has checked it** against the page. A
+  mis-scanned word becomes a word learned wrongly, which is the one failure this project
+  cannot absorb.
+- **Question count does not scale with page length.** 3 comprehension, at most 6
+  vocabulary, hardest words first. A book page is several times a story page and
+  proportional testing would turn one page into an evening. Words that miss the cut are
+  in the word bank, not lost.
 - **`settingSources: []` on every call.** Without it the SDK loads `~/.claude` and any
   nearby `CLAUDE.md`, and a child's tutor inherits some other project's house rules. No
   tools either — this is text in, text out, not an agent.

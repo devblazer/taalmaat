@@ -20,9 +20,8 @@ export const ACTIVITIES = [
   {
     id: 'book',
     name: 'My own book',
-    blurb: 'Photograph a page from a book you are reading, and work through that.',
-    ready: false,
-    notReady: 'Not built yet — this is the next thing being added.',
+    blurb: 'Photograph a page from a book, or paste text in, and work through that.',
+    ready: true,
   },
 ];
 
