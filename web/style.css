@@ -60,6 +60,28 @@ h1 {
 .who-swap:hover { color: var(--accent); }
 .who-card h3 { font-size: 22px; }
 
+.activity-card .standing {
+  margin-top: 10px;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.activity-card .standing.resumable {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.activity-card[disabled] {
+  opacity: 0.55;
+  cursor: default;
+  transform: none;
+}
+
+.activity-card[disabled]:hover {
+  border-color: var(--line);
+  transform: none;
+}
+
 main {
   max-width: 720px;
   margin: 0 auto;

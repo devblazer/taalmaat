@@ -7,7 +7,8 @@ import { examPrompt } from '../claude/prompts/exam.js';
 import { markPrompt } from '../claude/prompts/mark.js';
 import { bridgePrompt, bridgeMarkPrompt, miniPrompt } from '../claude/prompts/bridge.js';
 import { getProfile } from '../profiles.js';
-import { progressFor } from '../store/progress.js';
+import { ACTIVITIES, getActivity } from '../activities.js';
+import { progressFor, peek } from '../store/progress.js';
 import { storiesFor, newId } from '../store/stories.js';
 import { bank, timesWrong } from '../store/words.js';
 
@@ -15,6 +16,42 @@ const MAX_BRIDGE_WORDS = 8;
 
 /** Stories whose later pages are still being written, keyed by story id. */
 const beingWritten = new Map();
+
+/**
+ * What each activity looks like right now, for the picker.
+ *
+ * Reads position without starting a session, so opening the picker never resumes
+ * anything. Picking an activity is a deliberate act - landing straight back in
+ * whatever was last touched is exactly the behaviour this replaces.
+ */
+export function overviewFor(profileId) {
+  const profile = getProfile(profileId);
+  if (!profile) throw tellHer('That learner is not set up yet.', `unknown profile: ${profileId}`);
+  const stories = storiesFor(profileId);
+
+  return {
+    profile: { id: profile.id, name: profile.name, age: profile.age, grade: profile.grade },
+    activities: ACTIVITIES.map((activity) => {
+      if (!activity.ready) {
+        return { ...activity, standing: activity.notReady };
+      }
+
+      const p = peek(profileId, activity.id);
+      const story = p.storyId ? stories.read(p.storyId) : null;
+
+      let standing = 'Nothing on the go — start something new.';
+      if (story && p.phase !== 'done') {
+        const total = story.pageCount ?? story.pages.length;
+        const where = { reading: 'reading', exam: 'on the questions for', bridge: 'on the word check for' }[p.phase] ?? 'on';
+        standing = `Carry on — ${where} page ${p.pageIndex + 1} of ${total} of “${story.title}”.`;
+      } else if (p.history.length) {
+        standing = `${p.history.length} finished. Start something new.`;
+      }
+
+      return { ...activity, standing, resumable: Boolean(story && p.phase !== 'done') };
+    }),
+  };
+}
 
 /**
  * One input per word, and every word findable in the sentence holding it.
@@ -51,11 +88,15 @@ function normaliseBridge(sentences = []) {
  * two learners can have the app open at once, and a shared "current profile" would
  * quietly file one of them's words under the other.
  */
-export function sessionFor(profileId) {
+export function sessionFor(profileId, activityId) {
   const profile = getProfile(profileId);
   if (!profile) throw tellHer('That learner is not set up yet.', `unknown profile: ${profileId}`);
 
-  const progress = progressFor(profileId);
+  const activity = getActivity(activityId);
+  if (!activity) throw tellHer('Pick what you want to do first.', `unknown activity: ${activityId}`);
+  if (!activity.ready) throw tellHer(activity.notReady ?? 'That is not ready yet.', `activity not ready: ${activityId}`);
+
+  const progress = progressFor(profileId, activityId);
   const stories = storiesFor(profileId);
   const words = bank(profileId);
 
@@ -65,6 +106,7 @@ export function sessionFor(profileId) {
     const story = p.storyId ? stories.read(p.storyId) : null;
     return {
       profile: { id: profile.id, name: profile.name, age: profile.age, grade: profile.grade },
+      activity: { id: activity.id, name: activity.name },
       phase: p.phase,
       offers: p.offers,
       story: story && {

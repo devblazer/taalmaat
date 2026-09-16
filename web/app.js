@@ -18,6 +18,16 @@ const coverFill = document.getElementById('cover-fill');
  */
 let who = localStorage.getItem('taalmaat.who');
 
+/**
+ * What they are doing, and why this is NOT remembered the way the profile is.
+ *
+ * Picking a learner used to drop them straight into whatever was last touched.
+ * Choosing what to do is a deliberate act, so a fresh visit always asks. It sits in
+ * sessionStorage rather than memory only so that a refresh mid-exam does not throw
+ * them back to the menu.
+ */
+let activity = sessionStorage.getItem('taalmaat.activity');
+
 let state = null;
 let error = null;
 /** Words she has tapped on the page in front of her, so they stay marked. */
@@ -86,10 +96,14 @@ function hideCover() {
   }, 200);
 }
 
-/** Every request says who it is for. */
+/** Every request says who it is for, and which activity it belongs to. */
 function url(path) {
-  if (!who || path === '/api/profiles') return path;
-  return `${path}${path.includes('?') ? '&' : '?'}who=${encodeURIComponent(who)}`;
+  if (path === '/api/profiles') return path;
+  const bits = [];
+  if (who) bits.push(`who=${encodeURIComponent(who)}`);
+  if (activity && path !== '/api/overview') bits.push(`activity=${encodeURIComponent(activity)}`);
+  if (!bits.length) return path;
+  return `${path}${path.includes('?') ? '&' : '?'}${bits.join('&')}`;
 }
 
 async function api(path, body, wait) {
@@ -313,10 +327,19 @@ function errorCard({ message, canRetry }) {
 function renderWhoBar() {
   whoBar.replaceChildren();
   if (!who || !state?.profile) return;
+
   const name = el(`<span class="who-name">${escape(state.profile.name)}</span>`);
+  whoBar.append(name);
+
+  if (state.activity) {
+    const back = el(`<button class="who-swap">${escape(state.activity.name)} — change</button>`);
+    back.addEventListener('click', pickActivity);
+    whoBar.append(back);
+  }
+
   const swap = el(`<button class="who-swap">not you?</button>`);
   swap.addEventListener('click', pickProfile);
-  whoBar.append(name, swap);
+  whoBar.append(swap);
 }
 
 function render() {
@@ -558,11 +581,64 @@ async function pickProfile() {
     card.addEventListener('click', () => {
       who = person.id;
       localStorage.setItem('taalmaat.who', who);
-      go('/api/state');
+      // Never straight into the last thing they were doing - always ask.
+      activity = null;
+      sessionStorage.removeItem('taalmaat.activity');
+      pickActivity();
     });
     main.append(card);
   }
 }
 
-if (who) go('/api/state');
+/**
+ * What do you want to do?
+ *
+ * Always shown after picking a learner, and each activity says where it stands, so
+ * carrying on is one click and starting something else does not bury it.
+ */
+async function pickActivity() {
+  activity = null;
+  sessionStorage.removeItem('taalmaat.activity');
+
+  let overview;
+  try {
+    overview = await api('/api/overview');
+  } catch {
+    render();
+    return;
+  }
+
+  state = null;
+  main.replaceChildren();
+  whoBar.replaceChildren();
+  crumb.textContent = '';
+
+  whoBar.append(el(`<span class="who-name">${escape(overview.profile.name)}</span>`));
+  const swap = el(`<button class="who-swap">not you?</button>`);
+  swap.addEventListener('click', pickProfile);
+  whoBar.append(swap);
+
+  main.append(el(`<p class="lead">What do you want to do, ${escape(overview.profile.name)}?</p>`));
+
+  for (const act of overview.activities) {
+    const card = el(`
+      <button class="offer activity-card"${act.ready ? '' : ' disabled'}>
+        <h3>${escape(act.name)}</h3>
+        <p>${escape(act.blurb)}</p>
+        <p class="standing${act.resumable ? ' resumable' : ''}">${escape(act.standing)}</p>
+      </button>
+    `);
+    if (act.ready) {
+      card.addEventListener('click', () => {
+        activity = act.id;
+        sessionStorage.setItem('taalmaat.activity', activity);
+        go('/api/state');
+      });
+    }
+    main.append(card);
+  }
+}
+
+if (who && activity) go('/api/state');
+else if (who) pickActivity();
 else pickProfile();

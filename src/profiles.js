@@ -14,7 +14,7 @@ export const PROFILES = [
     id: 'erin',
     name: 'Erin',
     age: 11,
-    grade: 6,
+    grade: 5,
     subject: 'Afrikaans First Additional Language',
     pronouns: { subj: 'she', obj: 'her', poss: 'her' },
     // What to assume she can already do, and what she cannot.
@@ -30,14 +30,14 @@ needs to be plain.`,
     id: 'summer',
     name: 'Summer',
     age: 16,
-    grade: 11,
+    grade: 10,
     subject: 'Afrikaans First Additional Language',
     pronouns: { subj: 'she', obj: 'her', poss: 'her' },
     reading: `
 She can follow a page of ordinary Afrikaans prose and handle longer sentences,
 subordinate clauses and past and future tenses. What is missing is breadth of
 vocabulary and confidence with idiom, figurative language and less common words -
-exactly the things a Grade 11 set text is full of. Do not simplify the grammar;
+exactly the things a Grade 10 set text is full of. Do not simplify the grammar;
 carry the level and let the vocabulary be the work.`,
     pageWords: 350,
   },

@@ -34,6 +34,14 @@ failure this project has, and nothing automated catches it.
 - **Nothing is shared between learners** — not the word bank, not progress, not stories.
   The profile is threaded through every call rather than held in a module variable,
   because two learners can have this open at once.
+- **An activity is a separate place to be, not a setting** (`src/activities.js`). A story
+  and an imported book each keep their own progress file, so being halfway through a set
+  text is not clobbered by picking a story on another evening. **The word bank is
+  deliberately not split this way** — a word is a word wherever it was met, and the point
+  is that it comes back next time it appears.
+- **Picking a learner never resumes anything.** It always lands on the activity picker,
+  which says where each one stands so carrying on is one click. Dropping someone straight
+  into whatever was last touched is the bug this replaced.
 - **After touching anything in `src/claude/prompts/`, run `node scripts/check.mjs` and
   read the output.** It asserts nothing. You are the test.
 - **Marking is generous about spelling and strict about meaning.** They are children

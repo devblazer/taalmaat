@@ -1,7 +1,7 @@
 import express from 'express';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { sessionFor } from './session/flow.js';
+import { sessionFor, overviewFor } from './session/flow.js';
 import { listProfiles } from './profiles.js';
 import { warmUp } from './claude/ask.js';
 import { explain, tellHer } from './claude/failure.js';
@@ -22,7 +22,20 @@ app.use(express.static(path.join(root, 'web')));
 function who(req) {
   const id = req.query.who ?? req.body?.who;
   if (!id) throw tellHer('Pick who is reading first.', 'no profile on request');
-  return sessionFor(String(id));
+
+  // Which activity, too. A story and an imported book are separate places to be,
+  // each with its own position, and a request that does not say which is ambiguous.
+  const activity = req.query.activity ?? req.body?.activity;
+  if (!activity) throw tellHer('Pick what you want to do first.', 'no activity on request');
+
+  return sessionFor(String(id), String(activity));
+}
+
+/** The profile's own id, for calls that are about the learner rather than a session. */
+function whoId(req) {
+  const id = req.query.who ?? req.body?.who;
+  if (!id) throw tellHer('Pick who is reading first.', 'no profile on request');
+  return String(id);
 }
 
 /**
@@ -49,6 +62,7 @@ function route(handler) {
 }
 
 app.get('/api/profiles', route(async () => listProfiles()));
+app.get('/api/overview', route(async (req) => overviewFor(whoId(req))));
 
 app.get('/api/state', route(async (req) => who(req).state()));
 app.post('/api/offers', route(async (req) => who(req).offerStories()));
