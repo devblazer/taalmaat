@@ -1,14 +1,12 @@
-import { readStory, writeStory, storyDir } from './db.js';
-import fs from 'node:fs';
+import { readStory, writeStory, listStories } from './db.js';
 
-export { readStory, writeStory };
-
-export function list() {
-  return fs
-    .readdirSync(storyDir)
-    .filter((f) => f.endsWith('.json'))
-    .map((f) => readStory(f.replace(/\.json$/, '')))
-    .filter(Boolean);
+/** The pages one learner is working through, whether written for them or imported. */
+export function storiesFor(profile) {
+  return {
+    read: (id) => readStory(profile, id),
+    write: (story) => writeStory(profile, story),
+    list: () => listStories(profile),
+  };
 }
 
 export function newId() {

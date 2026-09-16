@@ -1,27 +1,28 @@
-import { LEARNER, AFRIKAANS_RULES } from './level.js';
+import { learnerBlock, AFRIKAANS_RULES, pron } from './level.js';
 
 /**
- * She tapped a word.
+ * A word was tapped.
  *
- * `timesAsked` is how his "special attention" rule reaches her at the moment it
- * actually helps. The second time she asks the same word, repeating the same
- * definition has already been shown not to work, so the prompt is told to come at
- * it from somewhere else and hand her something to hang it on.
+ * `timesAsked` is how the "special attention" rule reaches the learner at the moment
+ * it actually helps. The second time the same word is asked about, repeating the same
+ * definition has already been shown not to work, so the prompt is told to come at it
+ * from somewhere else and hand over something to hang it on.
  */
-export function wordPrompt({ word, sentence, timesAsked = 0 }) {
+export function wordPrompt({ profile, word, sentence, timesAsked = 0 }) {
+  const p = pron(profile);
   const again =
     timesAsked >= 1
       ? `
-She has asked about this exact word ${timesAsked === 1 ? 'once' : `${timesAsked} times`} already.
-Telling her the same thing again clearly did not stick. Explain it a different way
-this time, and give her a hook - what the word is related to, what it sounds like,
-a picture to attach it to. Say gently that she has met it before; do not make her
-feel caught out.`
+${p.Subj} has asked about this exact word ${timesAsked === 1 ? 'once' : `${timesAsked} times`} already.
+Telling ${p.obj} the same thing again clearly did not stick. Explain it a different
+way this time, and give ${p.obj} a hook - what the word is related to, what it sounds
+like, a picture to attach it to. Say gently that ${p.subj} has met it before; do not
+make ${p.obj} feel caught out.`
       : '';
 
-  return `${LEARNER}
+  return `${learnerBlock(profile)}
 
-A word she tapped while reading. Explain it.
+A word tapped while reading. Explain it.
 
 Word: ${word}
 The sentence it is in: ${sentence}
@@ -41,22 +42,24 @@ Reply with JSON only, no other text:
 }`;
 }
 
-/** She still does not get it after the words - explain the whole sentence. */
-export function sentencePrompt({ sentence }) {
-  return `${LEARNER}
+/** Still stuck after the words - explain the whole sentence. */
+export function sentencePrompt({ profile, sentence }) {
+  const p = pron(profile);
+
+  return `${learnerBlock(profile)}
 
 ${AFRIKAANS_RULES}
 
-She read this Afrikaans sentence and still does not understand it after looking up
-the words. Explain the whole thing.
+${p.Subj} read this Afrikaans sentence and still does not understand it after looking
+up the words. Explain the whole thing.
 
 Sentence: ${sentence}
 
-Give her a natural English translation - what it actually means, not word-for-word.
+Give a natural English translation - what it actually means, not word-for-word.
 Then, only if there is genuinely something in HOW the sentence is built that tripped
-her up (verbs at the end, nie...nie wrapped around it, a word order English does not
-have), explain that one thing in plain English. If the sentence is straightforward
-and she just did not know the words, say so and skip it.
+${p.obj} up (verbs at the end, nie...nie wrapped around it, a word order English does
+not have), explain that one thing in plain English. If the sentence is straightforward
+and ${p.subj} just did not know the words, say so and skip it.
 
 Reply with JSON only, no other text:
 {

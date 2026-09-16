@@ -1,33 +1,43 @@
 # Taalmaat
 
-An Afrikaans reading tutor for the owner's eleven-year-old daughter. Read `README.md`
-first — it has the loop, the measured timings and the known holes.
+An Afrikaans reading tutor for the owner's two daughters. Read `README.md` first — it has
+the learners, the loop, the measured timings and the known holes.
 
 ## Who it is for, and what that changes
 
-One child, Afrikaans First Additional Language, about Grade 6. She reads Afrikaans; she
-does not write it yet, so **every answer she types is in English** and marking judges
-meaning, never spelling.
+Two learners, both Afrikaans First Additional Language, at very different stages — see
+`src/profiles.js`. They read Afrikaans; they do not write it yet, so **every answer typed
+is in English** and marking judges meaning, never spelling.
 
-Nobody in her house speaks Afrikaans. That is the constraint behind most decisions here:
-this tool is her only source of correct Afrikaans, and **neither she nor her parents can
-tell when it is wrong**. Fluent, idiomatic, subtly incorrect Afrikaans is the worst
+**A profile is a level, not a folder.** Everything — the learner description, the content
+rules, how long a page is — is built from it, and every prompt takes `profile` as an
+argument. A prompt that hardcodes an age is a bug: it will pitch a sixteen-year-old's
+exam at a child, or hand an eleven-year-old a page she cannot read.
+
+Nobody in the house speaks Afrikaans. That is the constraint behind most decisions here:
+this tool is their only source of correct Afrikaans, and **neither they nor their parents
+can tell when it is wrong**. Fluent, idiomatic, subtly incorrect Afrikaans is the worst
 failure this project has, and nothing automated catches it.
 
 ## House rules
 
-- **She must never see that Claude is involved.** No chat box, no free-text prompt, no
-  model names, no "AI" anywhere in the UI. This is a safeguard, not polish — she got into
-  this position by letting a chatbot do the work, and a visible one invites her to try
-  again.
-- **The Afrikaans quality bar lives in one file.** `src/claude/prompts/level.js` holds who
-  she is, the grammar rules, and the content rules. Every prompt imports it. If the story
-  is written at one level and tested at another, the tool teaches her she is worse at this
-  than she is.
+- **They must never see that Claude is involved.** No chat box, no free-text prompt, no
+  model names, no "AI" anywhere in the UI. This is a safeguard, not polish — the younger
+  one got into this position by letting a chatbot do the work, and a visible one invites
+  another go.
+- **The Afrikaans quality bar lives in one file.** `src/claude/prompts/level.js` builds the
+  learner block, the grammar rules and the content rules from a profile. Every prompt uses
+  it. If a page is written at one level and tested at another, the tool teaches the reader
+  they are worse at this than they are.
+- **Never guess someone's pronouns from their name.** `profiles.js` carries them and the
+  prompts interpolate them. Ask, or use they/them until told.
+- **Nothing is shared between learners** — not the word bank, not progress, not stories.
+  The profile is threaded through every call rather than held in a module variable,
+  because two learners can have this open at once.
 - **After touching anything in `src/claude/prompts/`, run `node scripts/check.mjs` and
   read the output.** It asserts nothing. You are the test.
-- **Marking is generous about spelling and strict about meaning.** She is eleven and
-  typing fast. Marking her down for `frite` teaches her to fear the box.
+- **Marking is generous about spelling and strict about meaning.** They are children
+  typing fast. Marking someone down for `frite` teaches them to fear the box.
 - **The story stays open beside the exam, and rereading is the skill.** Nobody should be
   answering from memory alone, and looking things up again is not cheating. The single
   exception is a word the exam is currently testing: tapping one of those gives a nudge,

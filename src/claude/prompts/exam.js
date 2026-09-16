@@ -1,47 +1,51 @@
-import { LEARNER } from './level.js';
+import { learnerBlock, pron } from './level.js';
 
 /**
- * The end-of-page test: did she understand it, and did the words she asked about
- * stay with her.
+ * The end-of-page test: was it understood, and did the words asked about stay.
  *
- * Vocabulary questions come from her own taps, worst first, so the test is
- * literally made of the things she did not know twenty minutes ago.
+ * Vocabulary questions come from the learner's own taps, worst first, so the test is
+ * literally made of the things they did not know twenty minutes ago.
  */
-export function examPrompt({ page, asked }) {
+export function examPrompt({ profile, page, asked }) {
+  const p = pron(profile);
   const vocab = asked.slice(0, 8);
   const vocabBlock = vocab.length
     ? vocab
         .map(
           (w) =>
-            `- ${w.word}${w.meaning ? ` (you told her: ${w.meaning})` : ''}` +
-            `${w.timesAsked > 1 ? ` [she asked ${w.timesAsked} times on this page - she is not holding onto this one]` : ''}`,
+            `- ${w.word}${w.meaning ? ` (you told ${p.obj}: ${w.meaning})` : ''}` +
+            `${w.timesAsked > 1 ? ` [asked ${w.timesAsked} times on this page - not holding onto this one]` : ''}`,
         )
         .join('\n')
-    : '(she did not ask about any words on this page)';
+    : `(${p.subj} did not ask about any words on this page)`;
 
-  return `${LEARNER}
+  return `${learnerBlock(profile)}
 
-She has just finished reading this page:
+${p.Subj} has just finished reading this page:
 
 """
 ${page}
 """
 
-Words she stopped and asked about while reading it:
+Words ${p.subj} stopped and asked about while reading it:
 ${vocabBlock}
 
-Build her test. Two parts.
+Build the test. Two parts.
 
-COMPREHENSION - 3 questions about what happened, ANSWERED IN ENGLISH. She is not
-writing Afrikaans yet; this is checking that she understood, nothing else. Ask
-things she can only answer by having followed the story - why someone did
-something, what changed, what a character wanted. Do not ask anything answerable by
-copying one Afrikaans word out of the text without understanding it.
+COMPREHENSION - 3 questions about what happened, ANSWERED IN ENGLISH. ${p.Subj} is not
+writing Afrikaans yet; this is checking understanding, nothing else. Ask things that
+can only be answered by having followed the page - why someone did something, what
+changed, what a character wanted. Do not ask anything answerable by copying one
+Afrikaans word out of the text without understanding it.
 
-VOCABULARY - one question per word above, in the order given. Ask what the word
-means. For a word she asked about more than once, do not just ask for the meaning -
-put it in a short new Afrikaans phrase and ask what that phrase means, so she has to
-recognise it rather than recite it.
+Pitch the questions at ${p.poss} age. ${p.Subj} will have the page open beside the
+questions and may reread it, so do not ask for recall of a detail - ask for something
+that needs the page to be understood.
+
+VOCABULARY - one question per word above, in the order given. Ask what the word means.
+For a word asked about more than once, do not just ask for the meaning - put it in a
+short new Afrikaans phrase and ask what that phrase means, so it has to be recognised
+rather than recited.
 
 Reply with JSON only, no other text:
 {

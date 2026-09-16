@@ -2,11 +2,21 @@ const main = document.getElementById('main');
 const crumb = document.getElementById('crumb');
 const popup = document.getElementById('popup');
 const popupBody = document.getElementById('popup-body');
+const whoBar = document.getElementById('who');
 const cover = document.getElementById('cover');
 const coverTitle = document.getElementById('cover-title');
 const coverSub = document.getElementById('cover-sub');
 const coverBar = document.getElementById('cover-bar');
 const coverFill = document.getElementById('cover-fill');
+
+/**
+ * Which learner is reading.
+ *
+ * Kept per browser only as a convenience, so nobody re-picks every evening. The
+ * data itself lives on the server under this id - a learner who reads on a laptop
+ * and photographs a page on a phone is one learner, not two.
+ */
+let who = localStorage.getItem('taalmaat.who');
 
 let state = null;
 let error = null;
@@ -76,10 +86,16 @@ function hideCover() {
   }, 200);
 }
 
+/** Every request says who it is for. */
+function url(path) {
+  if (!who || path === '/api/profiles') return path;
+  return `${path}${path.includes('?') ? '&' : '?'}who=${encodeURIComponent(who)}`;
+}
+
 async function api(path, body, wait) {
   if (wait) showCover(wait);
   try {
-    const res = await fetch(path, {
+    const res = await fetch(url(path), {
       method: body === undefined ? 'GET' : 'POST',
       headers: { 'content-type': 'application/json' },
       body: body === undefined ? undefined : JSON.stringify(body),
@@ -293,10 +309,21 @@ function errorCard({ message, canRetry }) {
 
 // ---------------------------------------------------------------- views
 
+/** Who is reading, and a way to hand over to someone else. */
+function renderWhoBar() {
+  whoBar.replaceChildren();
+  if (!who || !state?.profile) return;
+  const name = el(`<span class="who-name">${escape(state.profile.name)}</span>`);
+  const swap = el(`<button class="who-swap">not you?</button>`);
+  swap.addEventListener('click', pickProfile);
+  whoBar.append(name, swap);
+}
+
 function render() {
   main.replaceChildren();
   main.classList.remove('wide');
   crumb.textContent = '';
+  renderWhoBar();
   if (error) main.append(errorCard(error));
 
   // Nothing loaded and nothing working - the card above is the whole screen, so it
@@ -499,4 +526,43 @@ function escape(s) {
   return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 }
 
-go('/api/state');
+/**
+ * Ask who is reading.
+ *
+ * Shown on a first visit and whenever someone hands the laptop over. Choosing here
+ * swaps the whole world - word bank, progress, and the level everything is written
+ * at - so it is a deliberate screen rather than a dropdown in a corner.
+ */
+async function pickProfile() {
+  let people = [];
+  try {
+    people = await api('/api/profiles');
+  } catch {
+    render();
+    return;
+  }
+
+  state = null;
+  main.replaceChildren();
+  whoBar.replaceChildren();
+  crumb.textContent = '';
+  main.append(el(`<p class="lead">Who's reading?</p>`));
+
+  for (const person of people) {
+    const card = el(`
+      <button class="offer who-card">
+        <h3>${escape(person.name)}</h3>
+        <p>Grade ${person.grade}</p>
+      </button>
+    `);
+    card.addEventListener('click', () => {
+      who = person.id;
+      localStorage.setItem('taalmaat.who', who);
+      go('/api/state');
+    });
+    main.append(card);
+  }
+}
+
+if (who) go('/api/state');
+else pickProfile();

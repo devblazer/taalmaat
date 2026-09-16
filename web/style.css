@@ -43,6 +43,23 @@ h1 {
 
 .crumb { color: var(--muted); font-size: 14px; }
 
+.who { margin-left: auto; display: flex; align-items: baseline; gap: 10px; }
+.who-name { font-weight: 600; color: var(--ink); }
+
+.who-swap {
+  font: inherit;
+  font-size: 13px;
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0;
+}
+
+.who-swap:hover { color: var(--accent); }
+.who-card h3 { font-size: 22px; }
+
 main {
   max-width: 720px;
   margin: 0 auto;
