@@ -2,7 +2,11 @@ const main = document.getElementById('main');
 const crumb = document.getElementById('crumb');
 const popup = document.getElementById('popup');
 const popupBody = document.getElementById('popup-body');
-const busy = document.getElementById('busy');
+const cover = document.getElementById('cover');
+const coverTitle = document.getElementById('cover-title');
+const coverSub = document.getElementById('cover-sub');
+const coverBar = document.getElementById('cover-bar');
+const coverFill = document.getElementById('cover-fill');
 
 let state = null;
 let error = null;
@@ -11,11 +15,64 @@ let asked = new Set();
 /** The sentence the open popup came out of, for the "explain the whole sentence" step. */
 let popupSentence = null;
 
-let inFlight = 0;
+/**
+ * What she sees while Claude is thinking.
+ *
+ * `seconds` is the measured typical wait, and it drives a bar that creeps to 92%
+ * and stops. It is an estimate rather than real progress - but a child staring at
+ * a blank page for twenty-three seconds concludes the thing is broken, and a bar
+ * that is honestly paced is the difference between waiting and giving up.
+ */
+const WAITS = {
+  offers: { title: 'Finding you some stories…', seconds: 6 },
+  story: {
+    title: 'Writing your story…',
+    seconds: 25,
+    lines: [
+      'This one takes a little longer — it is being written just for you.',
+      'Thinking about who is in it…',
+      'Getting the first page right…',
+      'Almost there.',
+    ],
+  },
+  exam: { title: 'Getting your questions ready…', seconds: 6 },
+  marking: { title: 'Reading your answers…', seconds: 8 },
+  checking: { title: 'Checking…', seconds: 12 },
+  sentences: { title: 'Writing you some new sentences…', seconds: 12 },
+};
 
-async function api(path, body) {
-  inFlight++;
-  busy.hidden = false;
+let coverTick = null;
+
+function showCover(wait) {
+  coverTitle.textContent = wait.title;
+  coverSub.textContent = wait.lines?.[0] ?? '';
+  coverFill.style.width = '0%';
+  coverBar.hidden = false;
+  cover.hidden = false;
+
+  const started = Date.now();
+  clearInterval(coverTick);
+  coverTick = setInterval(() => {
+    const elapsed = (Date.now() - started) / 1000;
+    coverFill.style.width = `${Math.min(92, (elapsed / wait.seconds) * 92).toFixed(1)}%`;
+    if (wait.lines) {
+      const step = Math.min(wait.lines.length - 1, Math.floor(elapsed / (wait.seconds / wait.lines.length)));
+      coverSub.textContent = wait.lines[step];
+    }
+  }, 400);
+}
+
+function hideCover() {
+  clearInterval(coverTick);
+  coverTick = null;
+  coverFill.style.width = '100%';
+  setTimeout(() => {
+    cover.hidden = true;
+  }, 200);
+}
+
+async function api(path, body, wait) {
+  if (wait) showCover(wait);
   try {
     const res = await fetch(path, {
       method: body === undefined ? 'GET' : 'POST',
@@ -30,14 +87,14 @@ async function api(path, body) {
     error = err.message;
     throw err;
   } finally {
-    if (--inFlight === 0) busy.hidden = true;
+    if (wait) hideCover();
   }
 }
 
 /** Most calls hand back the whole state; this is the one place that swaps it in. */
-async function go(path, body) {
+async function go(path, body, wait) {
   try {
-    state = await api(path, body);
+    state = await api(path, body, wait);
     asked = new Set(state.story?.askedWords ?? []);
   } catch {
     /* error is rendered */
@@ -98,9 +155,16 @@ function closePopup() {
 
 popup.querySelector('.popup-close').addEventListener('click', closePopup);
 
+/** One lookup at a time - a second tap mid-lookup lands in the wrong popup. */
+let lookingUp = false;
+
 async function tapWord(word, sentence, el) {
+  if (lookingUp) return;
+  lookingUp = true;
+  document.body.classList.add('waiting-word');
+
   popupSentence = sentence;
-  showPopup(`<h4>${escape(word)}</h4><p class="meaning">…</p>`);
+  showPopup(`<h4>${escape(word)}</h4><p class="looking">Looking it up…</p>`);
   try {
     const g = await api('/api/word', { word, sentence });
     asked.add(word.toLowerCase());
@@ -122,13 +186,20 @@ async function tapWord(word, sentence, el) {
     `);
     document.getElementById('explain-sentence').addEventListener('click', explainSentence);
   } catch {
-    showPopup(`<h4>${escape(word)}</h4><p class="meaning">Couldn't look that up just now - try again.</p>`);
+    showPopup(`<h4>${escape(word)}</h4><p class="meaning">Couldn't look that up just now - tap it again.</p>`);
+  } finally {
+    lookingUp = false;
+    document.body.classList.remove('waiting-word');
   }
 }
 
 async function explainSentence() {
+  if (lookingUp) return;
+  lookingUp = true;
+  document.body.classList.add('waiting-word');
+
   const sentence = popupSentence;
-  showPopup(`<h4>The whole sentence</h4><p class="meaning">…</p>`);
+  showPopup(`<h4>The whole sentence</h4><p class="looking">Working it out…</p>`);
   try {
     const s = await api('/api/sentence', { sentence });
     const list = (s.words ?? [])
@@ -143,6 +214,9 @@ async function explainSentence() {
     `);
   } catch {
     showPopup(`<h4>The whole sentence</h4><p class="meaning">Couldn't explain that just now - try again.</p>`);
+  } finally {
+    lookingUp = false;
+    document.body.classList.remove('waiting-word');
   }
 }
 
@@ -167,7 +241,7 @@ function viewChoosing() {
   if (!state.offers) {
     main.append(el(`<p class="lead">Ready for a story?</p>`));
     const b = el(`<div class="row"><button class="primary">Show me three stories</button></div>`);
-    b.querySelector('button').addEventListener('click', () => go('/api/offers', {}));
+    b.querySelector('button').addEventListener('click', () => go('/api/offers', {}, WAITS.offers));
     main.append(b);
     return;
   }
@@ -175,12 +249,12 @@ function viewChoosing() {
   main.append(el(`<p class="lead">Which one do you want to read?</p>`));
   state.offers.forEach((o, i) => {
     const card = el(`<button class="offer"><h3>${escape(o.title)}</h3><p>${escape(o.teaser)}</p></button>`);
-    card.addEventListener('click', () => go('/api/choose', { index: i }));
+    card.addEventListener('click', () => go('/api/choose', { index: i }, WAITS.story));
     main.append(card);
   });
 
   const more = el(`<div class="row"><button class="ghost">Show me three different ones</button></div>`);
-  more.querySelector('button').addEventListener('click', () => go('/api/offers', {}));
+  more.querySelector('button').addEventListener('click', () => go('/api/offers', {}, WAITS.offers));
   main.append(more);
 }
 
@@ -195,7 +269,7 @@ function viewReading() {
   const row = el(`<div class="row"><button class="primary">I've finished this page</button></div>`);
   row.querySelector('button').addEventListener('click', () => {
     closePopup();
-    go('/api/exam', {});
+    go('/api/exam', {}, WAITS.exam);
   });
   main.append(row);
 }
@@ -243,7 +317,7 @@ function viewExam() {
   }
 
   const row = el(`<div class="row"><button class="primary">Check my answers</button></div>`);
-  row.querySelector('button').addEventListener('click', () => go('/api/exam/answer', { answers: collectAnswers() }));
+  row.querySelector('button').addEventListener('click', () => go('/api/exam/answer', { answers: collectAnswers() }, WAITS.marking));
   main.append(row);
 }
 
@@ -255,7 +329,7 @@ function viewBridge() {
     main.append(el(`<p class="lead">Let's pin these down properly first.</p>`));
     for (const q of b.mini.questions) main.append(questionCard(q, b.mini.results[q.id]));
     const row = el(`<div class="row"><button class="primary">Check</button></div>`);
-    row.querySelector('button').addEventListener('click', () => go('/api/mini/answer', { answers: collectAnswers() }));
+    row.querySelector('button').addEventListener('click', () => go('/api/mini/answer', { answers: collectAnswers() }, WAITS.checking));
     main.append(row);
     return;
   }
@@ -278,14 +352,14 @@ function viewBridge() {
   }
 
   const row = el(`<div class="row"><button class="primary">Check</button></div>`);
-  row.querySelector('button').addEventListener('click', () => go('/api/bridge/answer', { answers: collectAnswers() }));
+  row.querySelector('button').addEventListener('click', () => go('/api/bridge/answer', { answers: collectAnswers() }, WAITS.checking));
   main.append(row);
 }
 
 function viewDone() {
   main.append(el(`<p class="lead">You finished <b>${escape(state.history.at(-1)?.title ?? 'the story')}</b>. Well read.</p>`));
   const row = el(`<div class="row"><button class="primary">Another story</button></div>`);
-  row.querySelector('button').addEventListener('click', () => go('/api/offers', {}));
+  row.querySelector('button').addEventListener('click', () => go('/api/offers', {}, WAITS.offers));
   main.append(row);
 }
 
