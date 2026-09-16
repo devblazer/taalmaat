@@ -28,6 +28,27 @@ let who = localStorage.getItem('taalmaat.who');
  */
 let activity = sessionStorage.getItem('taalmaat.activity');
 
+/**
+ * How it looks. Per browser, not per learner - it belongs to the eyes and the room,
+ * not to the account, and the same child reads on a bright laptop and a dark phone.
+ */
+function applySetting(key, attr, fallback) {
+  const value = localStorage.getItem(`taalmaat.${key}`) ?? fallback;
+  const select = document.getElementById(key);
+  select.value = value;
+  // "system" means stamp nothing, so the OS preference decides.
+  if (value === 'system') delete document.documentElement.dataset[attr];
+  else document.documentElement.dataset[attr] = value;
+  select.addEventListener('change', () => {
+    localStorage.setItem(`taalmaat.${key}`, select.value);
+    if (select.value === 'system') delete document.documentElement.dataset[attr];
+    else document.documentElement.dataset[attr] = select.value;
+  });
+}
+
+applySetting('size', 'size', 'normal');
+applySetting('mode', 'theme', 'system');
+
 let state = null;
 let error = null;
 /** Words she has tapped on the page in front of her, so they stay marked. */
@@ -344,9 +365,27 @@ function renderWhoBar() {
     whoBar.append(back);
   }
 
+  // Available from anywhere there is something on the go. Being stuck in a story
+  // that turned out to be dull, or a chapter that turned out to be the wrong one,
+  // is its own reason to stop using this.
+  if (state.story) {
+    const quit = el(`<button class="danger">start something new</button>`);
+    quit.addEventListener('click', () => confirmStartOver(quit));
+    whoBar.append(quit);
+  }
+
   const swap = el(`<button class="who-swap">not you?</button>`);
   swap.addEventListener('click', pickProfile);
   whoBar.append(swap);
+}
+
+/** Inline confirm - it throws away their place, so one stray tap must not do it. */
+function confirmStartOver(button) {
+  const ask = el(`<span class="confirm">Sure? <button class="danger">yes</button> <button class="who-swap">no</button></span>`);
+  const [yes, no] = ask.querySelectorAll('button');
+  yes.addEventListener('click', () => go('/api/start-over', {}, WAITS.adding));
+  no.addEventListener('click', renderWhoBar);
+  button.replaceWith(ask);
 }
 
 function render() {
@@ -462,7 +501,7 @@ function viewImporting() {
 
   if (s) {
     const row = el(`<div class="row"><button class="ghost">Finished with this book</button></div>`);
-    row.querySelector('button').addEventListener('click', () => go('/api/close-book', {}, WAITS.adding));
+    row.querySelector('button').addEventListener('click', () => go('/api/start-over', {}, WAITS.adding));
     main.append(row);
   }
 }

@@ -336,15 +336,34 @@ export function sessionFor(profileId, activityId) {
     return state();
   }
 
-  /** Put the book down and start a different one next time. */
-  function closeBook() {
+  /**
+   * Put down whatever is on the go and start something else.
+   *
+   * Available from anywhere, in either activity - halfway through a page, mid-exam,
+   * stuck on a bridge. Being trapped in a story that turned out to be boring, or a
+   * chapter that turned out to be the wrong one, is its own reason to stop using
+   * this.
+   *
+   * Only the position is dropped. The word bank is untouched: every word looked up
+   * on the way here was still learned, and it will come back wherever it next
+   * appears.
+   */
+  function startOver() {
     const p = progress.load();
     const story = p.storyId ? stories.read(p.storyId) : null;
     const history = story
       ? [...p.history, { storyId: story.id, title: story.title, finishedAt: new Date().toISOString() }]
       : p.history;
 
-    progress.update({ phase: 'importing', storyId: null, pageIndex: 0, exam: null, bridge: null, history });
+    progress.update({
+      phase: importsPages ? 'importing' : 'choosing',
+      storyId: null,
+      pageIndex: 0,
+      offers: null,
+      exam: null,
+      bridge: null,
+      history,
+    });
     return state();
   }
 
@@ -567,7 +586,7 @@ export function sessionFor(profileId, activityId) {
     scanPage,
     pasteText,
     addPage,
-    closeBook,
+    startOver,
     lookupWord,
     lookupSentence,
     startExam,

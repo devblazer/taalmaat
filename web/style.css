@@ -1,14 +1,74 @@
+/* Light is the default. Dark is defined twice on purpose: once for an explicit
+   choice, once for "System" so the OS setting still wins when nothing is chosen. */
 :root {
   --ink: #23201c;
   --paper: #fbf7f0;
   --card: #fffdfa;
   --line: #e4dbcc;
   --accent: #2f6f4e;
+  --accent-hover: #26593e;
   --accent-soft: #e6f0e9;
+  --right-line: #bfd9ca;
   --warm: #b4551f;
   --warm-soft: #fbeade;
+  --wrong-line: #edcdb6;
   --muted: #7a7166;
+  --mark-bg: #ffe9a8;
+  --mark-line: #e0ab2e;
+  --picked: #fff6d8;
+  --glass: rgba(255, 255, 255, 0.7);
+  --veil: rgba(251, 247, 240, 0.92);
   --radius: 14px;
+
+  /* Reading size. Everything meant to be read scales off this one number. */
+  --reading: 20px;
+}
+
+:root[data-size="small"]  { --reading: 17px; }
+:root[data-size="normal"] { --reading: 20px; }
+:root[data-size="large"]  { --reading: 24px; }
+:root[data-size="huge"]   { --reading: 29px; }
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ink: #e9e4db;
+    --paper: #171614;
+    --card: #211f1c;
+    --line: #3a352e;
+    --accent: #79c79a;
+    --accent-hover: #8fd6ac;
+    --accent-soft: #23322a;
+    --right-line: #33543f;
+    --warm: #e39a63;
+    --warm-soft: #33251b;
+    --wrong-line: #5c3f2a;
+    --muted: #9c9487;
+    --mark-bg: #5a4718;
+    --mark-line: #c79a2e;
+    --picked: #4a3d18;
+    --glass: rgba(0, 0, 0, 0.25);
+    --veil: rgba(23, 22, 20, 0.93);
+  }
+}
+
+:root[data-theme="dark"] {
+  --ink: #e9e4db;
+  --paper: #171614;
+  --card: #211f1c;
+  --line: #3a352e;
+  --accent: #79c79a;
+  --accent-hover: #8fd6ac;
+  --accent-soft: #23322a;
+  --right-line: #33543f;
+  --warm: #e39a63;
+  --warm-soft: #33251b;
+  --wrong-line: #5c3f2a;
+  --muted: #9c9487;
+  --mark-bg: #5a4718;
+  --mark-line: #c79a2e;
+  --picked: #4a3d18;
+  --glass: rgba(0, 0, 0, 0.25);
+  --veil: rgba(23, 22, 20, 0.93);
 }
 
 * { box-sizing: border-box; }
@@ -119,7 +179,7 @@ main {
 .page-of { color: var(--muted); font-size: 14px; margin-bottom: 24px; }
 
 .page {
-  font-size: 20px;
+  font-size: var(--reading);
   line-height: 1.85;
   background: var(--card);
   border: 1px solid var(--line);
@@ -142,7 +202,7 @@ main {
 
 /* A word the exam is asking about. Still readable, just not a free answer. */
 .w.blocked { cursor: help; }
-.w.blocked:hover { background: #ffe9a8; }
+.w.blocked:hover { background: var(--mark-bg); }
 
 /* ---------- exam beside the story ---------- */
 
@@ -171,7 +231,7 @@ main.wide { max-width: 1180px; }
   color: var(--muted);
 }
 
-.story-pane .page { font-size: 17px; line-height: 1.8; padding: 22px 24px; }
+.story-pane .page { font-size: calc(var(--reading) - 3px); line-height: 1.8; padding: 22px 24px; }
 .story-pane .hint { margin-top: 12px; }
 
 @media (max-width: 920px) {
@@ -179,7 +239,7 @@ main.wide { max-width: 1180px; }
   .story-pane { position: static; max-height: 44vh; }
 }
 
-.s.picked { background: #fff6d8; border-radius: 6px; }
+.s.picked { background: var(--picked); border-radius: 6px; }
 
 .hint {
   margin: 18px 0 0;
@@ -201,7 +261,7 @@ button.ghost {
 }
 
 button.primary { background: var(--accent); color: #fff; }
-button.primary:hover { background: #26593e; }
+button.primary:hover { background: var(--accent-hover); }
 button.ghost { background: transparent; border-color: var(--line); color: var(--ink); }
 button.ghost:hover { border-color: var(--accent); }
 button:disabled { opacity: 0.5; cursor: default; }
@@ -281,13 +341,13 @@ button:disabled { opacity: 0.5; cursor: default; }
 .q input:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
 
 .result { border-radius: var(--radius); padding: 16px 20px; margin-bottom: 14px; }
-.result.right { background: var(--accent-soft); border: 1px solid #bfd9ca; }
-.result.wrong { background: var(--warm-soft); border: 1px solid #edcdb6; }
+.result.right { background: var(--accent-soft); border: 1px solid var(--right-line); }
+.result.wrong { background: var(--warm-soft); border: 1px solid var(--wrong-line); }
 .result .head { font-weight: 600; margin-bottom: 4px; }
 .result .evidence {
   margin: 8px 0 0;
   padding: 8px 12px;
-  background: rgba(255, 255, 255, 0.7);
+  background: var(--glass);
   border-radius: 8px;
   font-style: italic;
 }
@@ -299,14 +359,14 @@ button:disabled { opacity: 0.5; cursor: default; }
   padding: 18px 20px;
   margin-bottom: 14px;
 }
-.sentence-card .af { font-size: 20px; margin: 0 0 16px; line-height: 1.7; }
+.sentence-card .af { font-size: var(--reading); margin: 0 0 16px; line-height: 1.7; }
 
 .sentence-card mark {
-  background: #ffe9a8;
+  background: var(--mark-bg);
   color: inherit;
   padding: 1px 4px;
   border-radius: 4px;
-  box-shadow: inset 0 -2px 0 #e0ab2e;
+  box-shadow: inset 0 -2px 0 var(--mark-line);
   font-weight: 600;
 }
 
@@ -340,7 +400,7 @@ button:disabled { opacity: 0.5; cursor: default; }
   font-size: 16px;
 }
 
-.filebtn:hover .primary-ish { background: #26593e; }
+.filebtn:hover .primary-ish { background: var(--accent-hover); }
 
 textarea {
   width: 100%;
@@ -357,7 +417,7 @@ textarea {
 
 textarea:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
 
-#draft-box { font-size: 17px; line-height: 1.75; }
+#draft-box { font-size: calc(var(--reading) - 3px); line-height: 1.75; }
 
 /* ---------- waiting ----------
    A full cover, not a corner dot. While Claude is thinking she must not be able to
@@ -370,7 +430,7 @@ textarea:focus { outline: 2px solid var(--accent-soft); border-color: var(--acce
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(251, 247, 240, 0.92);
+  background: var(--veil);
   backdrop-filter: blur(3px);
   animation: fade-in 0.18s ease-out;
 }
@@ -451,7 +511,7 @@ body.waiting-word .w:hover { background: none; }
   gap: 16px;
   align-items: flex-start;
   background: var(--warm-soft);
-  border: 1px solid #edcdb6;
+  border: 1px solid var(--wrong-line);
   border-radius: var(--radius);
   padding: 20px 22px;
   margin-bottom: 22px;
@@ -462,3 +522,46 @@ body.waiting-word .w:hover { background: none; }
 .error-message { margin: 0 0 4px; font-size: 18px; color: var(--ink); }
 .error-hint { margin: 0; color: var(--muted); font-size: 15px; }
 .error .row { margin-top: 16px; }
+
+/* ---------- header tools ---------- */
+
+.tools { margin-left: auto; display: flex; align-items: center; gap: 18px; }
+.who { margin-left: 0; }
+
+.size, .mode {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.size select, .mode select {
+  font: inherit;
+  font-size: 13px;
+  padding: 3px 6px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.danger {
+  font: inherit;
+  font-size: 13px;
+  background: none;
+  border: none;
+  color: var(--warm);
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0;
+}
+
+.danger:hover { color: var(--ink); }
+
+@media (max-width: 720px) {
+  header { flex-wrap: wrap; }
+  .tools { width: 100%; margin-left: 0; justify-content: flex-start; gap: 12px; }
+}
+
+.confirm { display: inline-flex; align-items: baseline; gap: 6px; font-size: 13px; color: var(--muted); }
