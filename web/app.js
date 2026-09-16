@@ -82,7 +82,7 @@ const WAITS = {
   sentences: { title: 'Writing you some new sentences…', seconds: 12 },
   scan: {
     title: 'Reading your page…',
-    seconds: 14,
+    seconds: 30,
     lines: ['Looking at the photo…', 'Working out the words…', 'Tidying up the scan…', 'Almost there.'],
   },
   paste: { title: 'Taking that in…', seconds: 3 },
@@ -134,13 +134,25 @@ function url(path) {
   return `${path}${path.includes('?') ? '&' : '?'}${bits.join('&')}`;
 }
 
+/**
+ * Nothing waits forever.
+ *
+ * Without this a request that never comes back - a server that died, a dropped
+ * connection - leaves the cover up with a spinner and no way out, which is
+ * indistinguishable from "still working" and is exactly how a session gets lost.
+ */
+const TIMEOUT_MS = 240_000;
+
 async function api(path, body, wait) {
   if (wait) showCover(wait);
+  const abort = new AbortController();
+  const bell = setTimeout(() => abort.abort(), TIMEOUT_MS);
   try {
     const res = await fetch(url(path), {
       method: body === undefined ? 'GET' : 'POST',
       headers: { 'content-type': 'application/json' },
       body: body === undefined ? undefined : JSON.stringify(body),
+      signal: abort.signal,
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
@@ -150,10 +162,14 @@ async function api(path, body, wait) {
     error = null;
     return data;
   } catch (err) {
-    // A dead server or pulled network never reaches the branch above.
-    error ??= { message: 'Cannot reach the app right now.', canRetry: true };
+    // A dead server, a pulled network, or a request that never came back.
+    error ??=
+      err?.name === 'AbortError'
+        ? { message: 'That took far too long and I gave up waiting.', canRetry: true }
+        : { message: 'Cannot reach the app right now.', canRetry: true };
     throw err;
   } finally {
+    clearTimeout(bell);
     if (wait) hideCover();
   }
 }
@@ -506,17 +522,44 @@ function viewImporting() {
   }
 }
 
-function readImage(file) {
-  const reader = new FileReader();
-  reader.onload = async () => {
-    try {
-      draft = await api('/api/scan', { image: reader.result }, WAITS.scan);
-    } catch {
-      /* rendered */
-    }
-    render();
-  };
-  reader.readAsDataURL(file);
+/**
+ * Shrink the photo before it goes anywhere.
+ *
+ * A modern phone shoots something like 4000x3000. That is a ~5MB upload over wifi
+ * and several times the work for OCR, for no gain: recognition of printed body text
+ * stops improving well before that. Scaling the long edge to 2000px cuts the pixels
+ * about fourfold and the upload by more, and the text stays crisp.
+ */
+const MAX_EDGE = 2000;
+
+function shrink(file) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, MAX_EDGE / Math.max(img.width, img.height));
+      if (scale === 1) return resolve({ url: img.src, w: img.width, h: img.height });
+
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      const ctx = canvas.getContext('2d');
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      resolve({ url: canvas.toDataURL('image/jpeg', 0.85), w: canvas.width, h: canvas.height });
+    };
+    img.onerror = () => reject(new Error('could not read that image'));
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+async function readImage(file) {
+  try {
+    const { url: image } = await shrink(file);
+    draft = await api('/api/scan', { image }, WAITS.scan);
+  } catch (err) {
+    error ??= { message: "I couldn't read that photo — try taking it again.", canRetry: true };
+  }
+  render();
 }
 
 /** Check it against the page before it becomes something to study. */

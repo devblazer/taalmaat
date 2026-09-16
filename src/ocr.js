@@ -40,7 +40,13 @@ export function warmUp() {
 export function read(image) {
   const job = queue.then(async () => {
     const w = await ready();
+    // Timed and logged: OCR is the slowest thing in the app and the only way to
+    // tell "still working" from "wedged" is a number in the log.
+    const started = Date.now();
+    const bytes = typeof image === 'string' ? Math.round((image.length * 3) / 4 / 1024) : 0;
     const { data } = await w.recognize(image);
+    const took = ((Date.now() - started) / 1000).toFixed(1);
+    console.log(`[ocr] ${bytes}KB -> ${took}s, ${Math.round(data.confidence ?? 0)}% confidence, ${(data.text ?? '').length} chars`);
     return {
       text: (data.text ?? '').trim(),
       confidence: data.confidence ?? 0,
