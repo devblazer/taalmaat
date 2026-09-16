@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Taalmaat</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header>
+      <h1>Taalmaat</h1>
+      <div id="crumb" class="crumb"></div>
+    </header>
+
+    <main id="main">
+      <div class="loading">Loading…</div>
+    </main>
+
+    <div id="popup" class="popup" hidden>
+      <button class="popup-close" aria-label="Close">×</button>
+      <div id="popup-body"></div>
+    </div>
+
+    <div id="busy" class="busy" hidden><span></span><span></span><span></span></div>
+
+    <script src="app.js" type="module"></script>
+  </body>
+</html>
