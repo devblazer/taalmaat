@@ -43,6 +43,14 @@ failure this project has, and nothing automated catches it.
   exactly one sentence — testing one word across three meant three full translations for
   one word. `asWritten` carries the word's exact surface form so the screen can highlight
   it; without that she is staring at a wall of Afrikaans with no idea what is being asked.
+- **Every failure has two audiences.** `src/claude/failure.js` maps an internal error to
+  a sentence she can act on; the whole truth goes to the server log for a parent. Never
+  render `err.message` — it used to put `exam: unparseable JSON (Unexpected token <)` on
+  a child's screen. Anything she sees must also pass the leak check: no model, no tokens,
+  no sessions, no JSON.
+- **A failure she cannot retry is a dead end.** Every error card carries a Try again that
+  repeats the last action, except the `setup` class, which is genuinely a grown-up's
+  problem and says so.
 - **`settingSources: []` on every call.** Without it the SDK loads `~/.claude` and any
   nearby `CLAUDE.md`, and a child's tutor inherits some other project's house rules. No
   tools either — this is text in, text out, not an agent.

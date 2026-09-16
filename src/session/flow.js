@@ -1,4 +1,5 @@
 import { ask } from '../claude/ask.js';
+import { tellHer } from '../claude/failure.js';
 import { offerPrompt } from '../claude/prompts/offer.js';
 import { openingPrompt, restPrompt, PAGES_PER_STORY } from '../claude/prompts/story.js';
 import { wordPrompt, sentencePrompt } from '../claude/prompts/gloss.js';
@@ -115,7 +116,7 @@ export async function offerStories() {
 export async function chooseStory(index) {
   const p = progress.load();
   const pick = p.offers?.[index];
-  if (!pick) throw new Error('that story is not on offer any more');
+  if (!pick) throw tellHer("That story isn't on the list any more - pick another one.");
 
   const revisit = words.ranked(null, { limit: 10, onlyDue: true });
   const written = await ask(openingPrompt({ title: pick.title, teaser: pick.teaser, revisit }), {

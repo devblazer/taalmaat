@@ -55,7 +55,12 @@ function showCover(wait) {
   coverTick = setInterval(() => {
     const elapsed = (Date.now() - started) / 1000;
     coverFill.style.width = `${Math.min(92, (elapsed / wait.seconds) * 92).toFixed(1)}%`;
-    if (wait.lines) {
+
+    // Past the estimate the bar stops moving, and a bar that has stopped reads as
+    // broken. Say so instead of letting her guess.
+    if (elapsed > wait.seconds * 1.4) {
+      coverSub.textContent = 'This is taking longer than usual — still going.';
+    } else if (wait.lines) {
       const step = Math.min(wait.lines.length - 1, Math.floor(elapsed / (wait.seconds / wait.lines.length)));
       coverSub.textContent = wait.lines[step];
     }
@@ -79,20 +84,28 @@ async function api(path, body, wait) {
       headers: { 'content-type': 'application/json' },
       body: body === undefined ? undefined : JSON.stringify(body),
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error ?? 'something went wrong');
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      error = { message: data.error ?? 'Something went wrong there.', canRetry: data.canRetry !== false };
+      throw new Error(error.message);
+    }
     error = null;
     return data;
   } catch (err) {
-    error = err.message;
+    // A dead server or pulled network never reaches the branch above.
+    error ??= { message: 'Cannot reach the app right now.', canRetry: true };
     throw err;
   } finally {
     if (wait) hideCover();
   }
 }
 
+/** The last thing she tried, so the Try again button can be the same thing again. */
+let lastGo = null;
+
 /** Most calls hand back the whole state; this is the one place that swaps it in. */
 async function go(path, body, wait) {
+  lastGo = { path, body, wait };
   try {
     state = await api(path, body, wait);
     asked = new Set(state.story?.askedWords ?? []);
@@ -100,6 +113,12 @@ async function go(path, body, wait) {
     /* error is rendered */
   }
   render();
+}
+
+function retry() {
+  if (!lastGo) return;
+  error = null;
+  go(lastGo.path, lastGo.body, lastGo.wait);
 }
 
 // ---------------------------------------------------------------- text
@@ -240,13 +259,48 @@ async function explainSentence() {
   }
 }
 
+// ---------------------------------------------------------------- errors
+
+/**
+ * What she sees when something breaks.
+ *
+ * A message she can read, and a button that does the thing again. Without the
+ * button a failure is a dead end: the banner used to appear over a blank page with
+ * no way forward at all.
+ */
+function errorCard({ message, canRetry }) {
+  const card = el(`
+    <div class="error">
+      <div class="error-face">😕</div>
+      <div class="error-body">
+        <p class="error-message">${escape(message)}</p>
+        <p class="error-hint">${
+          canRetry
+            ? 'Nothing you did is lost — have another go.'
+            : 'Nothing you did is lost. Ask whoever set this up to restart it.'
+        }</p>
+      </div>
+    </div>
+  `);
+
+  if (canRetry && lastGo) {
+    const row = el(`<div class="row"><button class="primary">Try again</button></div>`);
+    row.querySelector('button').addEventListener('click', retry);
+    card.querySelector('.error-body').append(row);
+  }
+  return card;
+}
+
 // ---------------------------------------------------------------- views
 
 function render() {
   main.replaceChildren();
   main.classList.remove('wide');
   crumb.textContent = '';
-  if (error) main.append(el(`<div class="error">${escape(error)}</div>`));
+  if (error) main.append(errorCard(error));
+
+  // Nothing loaded and nothing working - the card above is the whole screen, so it
+  // has to be able to get her out on its own.
   if (!state) return;
 
   ({

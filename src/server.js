@@ -3,6 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as flow from './session/flow.js';
 import { warmUp } from './claude/ask.js';
+import { explain } from './claude/failure.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const app = express();
@@ -21,8 +22,14 @@ function route(handler) {
     try {
       res.json(await handler(req));
     } catch (err) {
-      console.error('[error]', err);
-      res.status(500).json({ error: err?.message ?? String(err) });
+      // The whole truth goes to the log, where a parent can read it. She gets a
+      // sentence she can act on, and never the machinery.
+      const failure = explain(err);
+      console.error(`[${failure.code}]`, failure.detail);
+      if (failure.code === 'setup') {
+        console.error('  -> check the `claude` CLI is installed and logged in, then restart.');
+      }
+      res.status(500).json({ error: failure.kid, code: failure.code, canRetry: failure.canRetry });
     }
   };
 }

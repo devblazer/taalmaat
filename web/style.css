@@ -374,10 +374,18 @@ body.waiting-word .w { cursor: default; }
 body.waiting-word .w:hover { background: none; }
 
 .error {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
   background: var(--warm-soft);
   border: 1px solid #edcdb6;
   border-radius: var(--radius);
-  padding: 14px 18px;
-  margin-bottom: 18px;
-  color: var(--warm);
+  padding: 20px 22px;
+  margin-bottom: 22px;
 }
+
+.error-face { font-size: 30px; line-height: 1; }
+.error-body { flex: 1; }
+.error-message { margin: 0 0 4px; font-size: 18px; color: var(--ink); }
+.error-hint { margin: 0; color: var(--muted); font-size: 15px; }
+.error .row { margin-top: 16px; }
