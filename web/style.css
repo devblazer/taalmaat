@@ -13,6 +13,11 @@
 
 * { box-sizing: border-box; }
 
+/* The browser hides [hidden] from its own stylesheet, and any author rule setting
+   `display` outranks it - so `.cover { display: flex }` made the loading overlay
+   permanently visible and the page looked hung. Anything hidden stays hidden. */
+[hidden] { display: none !important; }
+
 body {
   margin: 0;
   background: var(--paper);
