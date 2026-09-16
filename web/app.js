@@ -336,19 +336,31 @@ function viewBridge() {
 
   main.append(
     el(`<p class="lead">${
-      b.attempt > 1 ? 'New sentences this time. What do they mean?' : 'Last thing — these use the words you found tricky. What do they mean?'
+      b.attempt > 1
+        ? 'New sentences this time. What does the marked word mean?'
+        : 'Last thing — what does the marked word mean in each one?'
     }</p>`),
   );
 
   for (const s of b.sentences) {
-    main.append(
-      el(`
-        <div class="sentence-card">
-          <p class="af">${escape(s.text)}</p>
-          <input type="text" data-qid="${s.id}" placeholder="In English…" autocomplete="off" />
-        </div>
-      `),
-    );
+    const card = el(`<div class="sentence-card"><p class="af">${highlight(s.text, s.targets)}</p></div>`);
+    for (const t of s.targets) {
+      const previous = (b.results ?? []).find((r) => r.word?.toLowerCase() === t.word.toLowerCase());
+      if (previous && !previous.correct) {
+        card.append(
+          el(`<div class="result wrong"><div class="head">Not quite last time</div><div>${escape(previous.feedback)}</div></div>`),
+        );
+      }
+      card.append(
+        el(`
+          <label class="ask">
+            <span><b>${escape(t.asWritten)}</b> means…</span>
+            <input type="text" data-qid="${escape(t.word)}" placeholder="In English…" autocomplete="off" />
+          </label>
+        `),
+      );
+    }
+    main.append(card);
   }
 
   const row = el(`<div class="row"><button class="primary">Check</button></div>`);
@@ -364,6 +376,24 @@ function viewDone() {
 }
 
 // ---------------------------------------------------------------- helpers
+
+/**
+ * Mark the word she is being asked about inside its sentence.
+ *
+ * Without this the sentence is a wall of Afrikaans with no clue which word the
+ * question is about. Escaped first, so the replace only ever wraps plain text; if
+ * the word cannot be found the sentence is still shown, just unmarked.
+ */
+function highlight(text, targets = []) {
+  let out = escape(text);
+  for (const t of targets) {
+    const needle = escape(t.asWritten || t.word);
+    if (!needle) continue;
+    const pattern = new RegExp(`(^|[^\\p{L}])(${needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})(?![\\p{L}])`, 'iu');
+    out = out.replace(pattern, (_, before, hit) => `${before}<mark>${hit}</mark>`);
+  }
+  return out;
+}
 
 function el(html) {
   const t = document.createElement('template');

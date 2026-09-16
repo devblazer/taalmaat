@@ -15,6 +15,34 @@ const MAX_BRIDGE_WORDS = 8;
 const beingWritten = new Map();
 
 /**
+ * One input per word, and every word findable in the sentence holding it.
+ *
+ * A word tested in three sentences used to mean answering for it three times, which
+ * is most of the effort of this step for none of the value. The first sentence that
+ * tests a word keeps it; any later sentence that has nothing left to ask is dropped
+ * rather than shown with no question attached.
+ *
+ * This also migrates bridges built before targets carried their surface form, so a
+ * session sitting on this step does not have to be thrown away.
+ */
+function normaliseBridge(sentences = []) {
+  const claimed = new Set();
+  const out = [];
+
+  for (const sentence of sentences) {
+    const targets = [];
+    for (const target of sentence.targets ?? []) {
+      const word = typeof target === 'string' ? target : target?.word;
+      if (!word || claimed.has(word.toLowerCase())) continue;
+      claimed.add(word.toLowerCase());
+      targets.push({ word, asWritten: (typeof target === 'string' ? null : target.asWritten) || word });
+    }
+    if (targets.length) out.push({ ...sentence, targets });
+  }
+  return out;
+}
+
+/**
  * Write pages two and three behind her, while she reads page one.
  *
  * Nothing awaits this at the point it starts. `advancePage` awaits it only if she
@@ -63,7 +91,7 @@ export function state() {
     bridge: p.bridge && {
       mode: p.bridge.mode,
       attempt: p.bridge.attempt,
-      sentences: p.bridge.sentences,
+      sentences: normaliseBridge(p.bridge.sentences),
       results: p.bridge.results ?? null,
       mini: p.bridge.mini
         ? {
@@ -220,15 +248,31 @@ export async function submitBridge(answers) {
   const p = progress.load();
   const b = p.bridge;
 
-  const marked = await ask(bridgeMarkPrompt({ sentences: b.sentences, answers }), { what: 'bridge marking' });
+  // She answered about words, so mark words - each one paired with the sentence it
+  // was highlighted in, which is the only context its meaning depends on.
+  const asked = normaliseBridge(b.sentences).flatMap((s) =>
+    s.targets.map((t) => ({ word: t.word, sentence: s.text })),
+  );
+
+  const marked = await ask(bridgeMarkPrompt({ asked, answers }), { what: 'bridge marking' });
+  const byWord = new Map((marked.words ?? []).map((w) => [w.word.toLowerCase(), w]));
+
   const wrongWords = [];
-  for (const w of marked.words ?? []) {
-    words.recordAnswer(w.word, { correct: !!w.correct, storyId: p.storyId, kind: 'bridge' });
-    if (!w.correct) wrongWords.push(w.word);
+  const results = [];
+  for (const { word } of asked) {
+    const r = byWord.get(word.toLowerCase()) ?? {
+      word,
+      correct: false,
+      feedback: 'Have another go at this one.',
+      translation: null,
+    };
+    results.push({ ...r, word });
+    words.recordAnswer(word, { correct: !!r.correct, storyId: p.storyId, kind: 'bridge' });
+    if (!r.correct) wrongWords.push(word);
   }
 
   if (!wrongWords.length) {
-    progress.update({ bridge: { ...b, results: marked.sentences ?? [] } });
+    progress.update({ bridge: { ...b, results } });
     return advancePage();
   }
 
@@ -241,7 +285,7 @@ export async function submitBridge(answers) {
     bridge: {
       ...b,
       mode: 'mini',
-      results: marked.sentences ?? [],
+      results,
       mini: { questions, pending: questions.map((q) => q.id), results: {} },
     },
   });

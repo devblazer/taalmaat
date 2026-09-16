@@ -34,6 +34,11 @@ failure this project has, and nothing automated catches it.
   `src/claude/prompts/bridge.js`.
 - **Bridge sentences are regenerated every attempt.** If she can pass by remembering the
   last set, the check is worthless. `attempt` is passed to the prompt for exactly this.
+- **The bridge asks for the word, never the sentence, and marks the word on screen.**
+  The sentence is context she reads, not a translation exercise. Each word is tested in
+  exactly one sentence — testing one word across three meant three full translations for
+  one word. `asWritten` carries the word's exact surface form so the screen can highlight
+  it; without that she is staring at a wall of Afrikaans with no idea what is being asked.
 - **`settingSources: []` on every call.** Without it the SDK loads `~/.claude` and any
   nearby `CLAUDE.md`, and a child's tutor inherits some other project's house rules. No
   tools either — this is text in, text out, not an agent.
