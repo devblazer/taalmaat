@@ -22,6 +22,16 @@
 
   /* Reading size. Everything meant to be read scales off this one number. */
   --reading: 20px;
+
+  /* Spacing, in two numbers, so padding cannot quietly stack up. `--gutter` is the
+     page edge and `--pad` is inside a card; both shrink on a phone, where three
+     nested paddings used to leave almost no room for the text itself. */
+  --gutter: 24px;
+  --pad: 22px;
+
+  /* Makes the browser draw selects, scrollbars and caret in the right theme.
+     Without it a dark page gets a white dropdown and a black caret. */
+  color-scheme: light;
 }
 
 :root[data-size="small"]  { --reading: 17px; }
@@ -48,6 +58,7 @@
     --picked: #4a3d18;
     --glass: rgba(0, 0, 0, 0.25);
     --veil: rgba(23, 22, 20, 0.93);
+    color-scheme: dark;
   }
 }
 
@@ -69,6 +80,7 @@
   --picked: #4a3d18;
   --glass: rgba(0, 0, 0, 0.25);
   --veil: rgba(23, 22, 20, 0.93);
+  color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
@@ -89,7 +101,7 @@ header {
   display: flex;
   align-items: baseline;
   gap: 16px;
-  padding: 18px 24px;
+  padding: 14px var(--gutter);
   border-bottom: 1px solid var(--line);
   background: var(--card);
 }
@@ -145,7 +157,7 @@ h1 {
 main {
   max-width: 720px;
   margin: 0 auto;
-  padding: 32px 24px 96px;
+  padding: 28px var(--gutter) 96px;
 }
 
 .loading { color: var(--muted); }
@@ -161,7 +173,7 @@ main {
   background: var(--card);
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  padding: 18px 20px;
+  padding: var(--pad);
   margin-bottom: 14px;
   cursor: pointer;
   font: inherit;
@@ -184,7 +196,7 @@ main {
   background: var(--card);
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  padding: 28px 30px;
+  padding: var(--pad);
 }
 
 .page p { margin: 0 0 1.1em; }
@@ -231,7 +243,7 @@ main.wide { max-width: 1180px; }
   color: var(--muted);
 }
 
-.story-pane .page { font-size: calc(var(--reading) - 3px); line-height: 1.8; padding: 22px 24px; }
+.story-pane .page { font-size: calc(var(--reading) - 3px); line-height: 1.8; }
 .story-pane .hint { margin-top: 12px; }
 
 @media (max-width: 920px) {
@@ -270,29 +282,45 @@ button:disabled { opacity: 0.5; cursor: default; }
 
 .popup {
   position: fixed;
-  left: 50%;
-  bottom: 24px;
-  transform: translateX(-50%);
-  width: min(560px, calc(100vw - 32px));
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
+  margin: 0 auto;
+  max-width: 560px;
+  max-height: min(70vh, 520px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   background: var(--card);
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.14);
-  padding: 20px 22px;
-  z-index: 20;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.28);
+  padding: var(--pad);
+  padding-right: calc(var(--pad) + 26px);   /* room for the close button */
+  z-index: 40;
+}
+
+#popup-body {
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .popup-close {
   position: absolute;
-  top: 8px;
-  right: 12px;
+  top: 4px;
+  right: 4px;
+  width: 44px;
+  height: 44px;
   background: none;
   border: none;
-  font-size: 24px;
+  font-size: 26px;
   line-height: 1;
   color: var(--muted);
   cursor: pointer;
+  z-index: 1;
 }
+
+.popup-close:hover { color: var(--ink); }
 
 .popup h4 { margin: 0 0 6px; font-size: 20px; color: var(--accent); }
 .popup .meaning { font-size: 17px; margin: 0 0 8px; }
@@ -315,7 +343,7 @@ button:disabled { opacity: 0.5; cursor: default; }
   background: var(--card);
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  padding: 18px 20px;
+  padding: var(--pad);
   margin-bottom: 14px;
 }
 
@@ -329,18 +357,37 @@ button:disabled { opacity: 0.5; cursor: default; }
   margin-bottom: 6px;
 }
 
-.q input[type="text"] {
-  width: 100%;
+/* Every typed-into thing, in one place. An input that sets a background but not a
+   colour inherits the browser's black, which is invisible on a dark card - that was
+   a real bug and this rule is why it cannot come back. */
+input[type="text"],
+textarea,
+select {
   font: inherit;
-  padding: 10px 12px;
+  color: var(--ink);
+  background: var(--paper);
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: var(--paper);
 }
 
-.q input:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
+input[type="text"],
+textarea {
+  width: 100%;
+  padding: 11px 13px;
+  min-height: 44px;   /* a finger, not a mouse */
+}
 
-.result { border-radius: var(--radius); padding: 16px 20px; margin-bottom: 14px; }
+input[type="text"]:focus,
+textarea:focus,
+select:focus {
+  outline: 2px solid var(--accent-soft);
+  border-color: var(--accent);
+}
+
+input::placeholder,
+textarea::placeholder { color: var(--muted); opacity: 1; }
+
+.result { border-radius: var(--radius); padding: var(--pad); margin-bottom: 14px; }
 .result.right { background: var(--accent-soft); border: 1px solid var(--right-line); }
 .result.wrong { background: var(--warm-soft); border: 1px solid var(--wrong-line); }
 .result .head { font-weight: 600; margin-bottom: 4px; }
@@ -356,7 +403,7 @@ button:disabled { opacity: 0.5; cursor: default; }
   background: var(--card);
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  padding: 18px 20px;
+  padding: var(--pad);
   margin-bottom: 14px;
 }
 .sentence-card .af { font-size: var(--reading); margin: 0 0 16px; line-height: 1.7; }
@@ -374,16 +421,6 @@ button:disabled { opacity: 0.5; cursor: default; }
 .ask span { display: block; margin-bottom: 6px; font-size: 16px; color: var(--muted); }
 .ask b { color: var(--ink); font-size: 17px; }
 
-.ask input[type="text"] {
-  width: 100%;
-  font: inherit;
-  padding: 10px 12px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--paper);
-}
-
-.ask input:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
 
 /* ---------- bringing in your own page ---------- */
 
@@ -402,20 +439,7 @@ button:disabled { opacity: 0.5; cursor: default; }
 
 .filebtn:hover .primary-ish { background: var(--accent-hover); }
 
-textarea {
-  width: 100%;
-  font: inherit;
-  font-size: 16px;
-  line-height: 1.6;
-  padding: 12px 14px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--paper);
-  color: inherit;
-  resize: vertical;
-}
-
-textarea:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
+textarea { font-size: 16px; line-height: 1.6; resize: vertical; }
 
 #draft-box { font-size: calc(var(--reading) - 3px); line-height: 1.75; }
 
@@ -513,7 +537,7 @@ body.waiting-word .w:hover { background: none; }
   background: var(--warm-soft);
   border: 1px solid var(--wrong-line);
   border-radius: var(--radius);
-  padding: 20px 22px;
+  padding: var(--pad);
   margin-bottom: 22px;
 }
 
@@ -525,8 +549,15 @@ body.waiting-word .w:hover { background: none; }
 
 /* ---------- header tools ---------- */
 
-.tools { margin-left: auto; display: flex; align-items: center; gap: 18px; }
-.who { margin-left: 0; }
+.tools {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.who { margin-left: 0; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 
 .size, .mode {
   display: flex;
@@ -537,13 +568,9 @@ body.waiting-word .w:hover { background: none; }
 }
 
 .size select, .mode select {
-  font: inherit;
-  font-size: 13px;
-  padding: 3px 6px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: var(--paper);
-  color: var(--ink);
+  font-size: 14px;
+  padding: 6px 8px;
+  min-height: 36px;
 }
 
 .danger {
@@ -559,9 +586,54 @@ body.waiting-word .w:hover { background: none; }
 
 .danger:hover { color: var(--ink); }
 
+/* ---------- small screens ----------
+   The layout problem here was additive: page gutter, then card padding, then more
+   padding inside that, all sized for a desktop. On a 360px phone it left a column
+   of text barely wide enough to read. Both spacing tokens shrink together. */
+
 @media (max-width: 720px) {
-  header { flex-wrap: wrap; }
-  .tools { width: 100%; margin-left: 0; justify-content: flex-start; gap: 12px; }
+  :root { --gutter: 12px; --pad: 15px; }
+
+  header {
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 14px;
+    position: sticky;
+    top: 0;
+    z-index: 30;
+  }
+
+  h1 { font-size: 18px; }
+
+  /* The breadcrumb is the first thing to go - it repeats what is on screen. */
+  .crumb { display: none; }
+
+  .tools { width: 100%; margin-left: 0; justify-content: space-between; gap: 10px; }
+  .size span, .mode span { display: none; }   /* the control explains itself */
+
+  main { padding-bottom: 72px; }
+  .page { line-height: 1.7; }
+  .story-title { font-size: 21px; }
+  .lead { font-size: 17px; }
+
+  /* Full-width buttons: a 44px pill in the middle of a row is a missed tap. */
+  .row { gap: 10px; }
+  .row button.primary,
+  .row button.ghost,
+  .filebtn,
+  .filebtn .primary-ish { width: 100%; text-align: center; }
+
+  button.primary, button.ghost { padding: 13px 20px; }
+
+  .popup { left: 8px; right: 8px; bottom: 8px; max-height: 80vh; }
+  .popup h4 { font-size: 18px; }
+  .popup .meaning { font-size: 16px; }
+}
+
+/* Very narrow, or a phone held in a case: stop the header eating the screen. */
+@media (max-width: 380px) {
+  :root { --gutter: 10px; --pad: 13px; }
+  .tools { gap: 8px; }
 }
 
 .confirm { display: inline-flex; align-items: baseline; gap: 6px; font-size: 13px; color: var(--muted); }
