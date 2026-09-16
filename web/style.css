@@ -101,6 +101,45 @@ main {
 .w:hover { background: var(--accent-soft); }
 .w.asked { background: var(--warm-soft); box-shadow: inset 0 -2px 0 var(--warm); }
 
+/* A word the exam is asking about. Still readable, just not a free answer. */
+.w.blocked { cursor: help; }
+.w.blocked:hover { background: #ffe9a8; }
+
+/* ---------- exam beside the story ---------- */
+
+main.wide { max-width: 1180px; }
+
+.split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 30px;
+  align-items: start;
+}
+
+.story-pane {
+  position: sticky;
+  top: 20px;
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.story-pane h3 {
+  margin: 0 0 12px;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.story-pane .page { font-size: 17px; line-height: 1.8; padding: 22px 24px; }
+.story-pane .hint { margin-top: 12px; }
+
+@media (max-width: 920px) {
+  .split { grid-template-columns: 1fr; }
+  .story-pane { position: static; max-height: 44vh; }
+}
+
 .s.picked { background: #fff6d8; border-radius: 6px; }
 
 .hint {

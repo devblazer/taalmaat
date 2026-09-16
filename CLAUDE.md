@@ -28,6 +28,10 @@ failure this project has, and nothing automated catches it.
   read the output.** It asserts nothing. You are the test.
 - **Marking is generous about spelling and strict about meaning.** She is eleven and
   typing fast. Marking her down for `frite` teaches her to fear the box.
+- **The story stays open beside the exam, and rereading is the skill.** Nobody should be
+  answering from memory alone, and looking things up again is not cheating. The single
+  exception is a word the exam is currently testing: tapping one of those gives a nudge,
+  not a definition, because otherwise the vocabulary half marks itself.
 - **Never mark a word wrong that she demonstrably got right.** This was a real bug: a word
   appearing in two bridge sentences collapsed to the worst verdict, so a word she had just
   translated correctly came back marked wrong. See the per-word rules in

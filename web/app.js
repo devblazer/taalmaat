@@ -110,8 +110,14 @@ function sentencesOf(paragraph) {
   return paragraph.split(/(?<=[.!?…])\s+/).filter(Boolean);
 }
 
-/** Render the page as tappable words, each one knowing which sentence it sits in. */
-function renderPage(text) {
+/**
+ * Render the page as tappable words, each one knowing which sentence it sits in.
+ *
+ * `blocked` holds the words the exam is currently asking about. She keeps the story
+ * beside her and may reread and look things up - that is the point - but tapping the
+ * very word being tested would hand her the answer, so those words nudge instead.
+ */
+function renderPage(text, { blocked = new Set() } = {}) {
   const wrap = document.createElement('div');
   wrap.className = 'page';
 
@@ -128,7 +134,12 @@ function renderPage(text) {
           w.className = 'w';
           w.textContent = m[1];
           if (asked.has(m[1].toLowerCase())) w.classList.add('asked');
-          w.addEventListener('click', () => tapWord(m[1], sentence, w));
+          if (blocked.has(m[1].toLowerCase())) {
+            w.classList.add('blocked');
+            w.addEventListener('click', () => nudge(m[1]));
+          } else {
+            w.addEventListener('click', () => tapWord(m[1], sentence, w));
+          }
           s.append(w);
         } else {
           s.append(document.createTextNode(m[2]));
@@ -154,6 +165,15 @@ function closePopup() {
 }
 
 popup.querySelector('.popup-close').addEventListener('click', closePopup);
+
+/** She tapped a word the exam is asking her about. No free answers. */
+function nudge(word) {
+  showPopup(`
+    <h4>${escape(word)}</h4>
+    <p class="meaning">This is one of the words you're being asked about — see if you can get it on your own first.</p>
+    <p class="note">You can still look up any other word, and read the story as many times as you like.</p>
+  `);
+}
 
 /** One lookup at a time - a second tap mid-lookup lands in the wrong popup. */
 let lookingUp = false;
@@ -224,6 +244,7 @@ async function explainSentence() {
 
 function render() {
   main.replaceChildren();
+  main.classList.remove('wide');
   crumb.textContent = '';
   if (error) main.append(el(`<div class="error">${escape(error)}</div>`));
   if (!state) return;
@@ -298,27 +319,46 @@ function collectAnswers() {
   return answers;
 }
 
+/**
+ * The exam, with the story still open beside it.
+ *
+ * Nobody should be answering from memory alone - going back and rereading is the
+ * skill, not cheating. The only thing withheld is a lookup of a word she is being
+ * tested on.
+ */
 function viewExam() {
   const e = state.exam;
   crumb.textContent = `${state.story.title} — page ${state.story.pageIndex + 1}`;
+  main.classList.add('wide');
 
   const retry = e.round > 1;
-  main.append(
-    el(`<p class="lead">${retry ? 'Nearly — just these left.' : 'Tell me what you understood.'}</p>`),
-  );
+  main.append(el(`<p class="lead">${retry ? 'Nearly — just these left.' : 'Tell me what you understood.'}</p>`));
+
+  const split = el(`<div class="split"></div>`);
+  const storyPane = el(`<div class="story-pane"><h3>The story</h3></div>`);
+  const asking = el(`<div class="ask-pane"></div>`);
+
+  const blocked = new Set(e.allQuestions.filter((q) => q.word).map((q) => q.word.toLowerCase()));
+  storyPane.append(renderPage(state.story.page, { blocked }));
+  storyPane.append(el(`<p class="hint">Read it again as many times as you like. You can still tap words that aren't being asked about.</p>`));
 
   for (const q of e.allQuestions) {
     const r = e.results[q.id];
     if (r?.correct) {
-      main.append(el(`<div class="result right"><div class="head">✓ ${escape(q.question)}</div><div>${escape(r.feedback)}</div></div>`));
+      asking.append(
+        el(`<div class="result right"><div class="head">✓ ${escape(q.question)}</div><div>${escape(r.feedback)}</div></div>`),
+      );
     } else if (e.questions.some((p) => p.id === q.id)) {
-      main.append(questionCard(q, r));
+      asking.append(questionCard(q, r));
     }
   }
 
   const row = el(`<div class="row"><button class="primary">Check my answers</button></div>`);
   row.querySelector('button').addEventListener('click', () => go('/api/exam/answer', { answers: collectAnswers() }, WAITS.marking));
-  main.append(row);
+  asking.append(row);
+
+  split.append(storyPane, asking);
+  main.append(split);
 }
 
 function viewBridge() {
